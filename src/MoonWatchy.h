@@ -33,7 +33,7 @@ class MoonWatchy : public Watchy{
 				void drawDate(int16_t x, float y);
 				void drawMinuteMarks();
 				void drawMoon();
-				void drawCalendar();
+				void drawCalendar(uint8_t Month, uint16_t Year);
 				char const *zodiacsign(int month, int day);
 				float moonphase(int year, int month, int day, int hour, int minute);
 				//7-segment stuff:

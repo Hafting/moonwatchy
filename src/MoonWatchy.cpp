@@ -167,13 +167,26 @@ void MoonWatchy::drawWatchFace(){
 			
 				break;
 			case 1:
-				drawCalendar();
+				//Calendar for current month
+				drawCalendar(currentTime.Month, tmYearToCalendar(currentTime.Year));
 				break;
 			case 2:
+				//Calendar for next month
+			{
+				uint16_t year = tmYearToCalendar(currentTime.Year);
+				uint8_t month = currentTime.Month + 1;
+				if (month == 13) {
+					month = 1;
+					++year;
+				}
+				drawCalendar(month, year);
+				break;
+			}
+			case 3:
 				//Picture of owner
 				drawOwner();
 				break;
-			case 3:
+			case 4:
 				//Weather reports for several (compiled-in) places
 			default:
 				//If nothing better, show the facenumber
@@ -240,7 +253,7 @@ char const *MoonWatchy::zodiacsign(int month, int day) {
 }
 
 
-void MoonWatchy::drawCalendar() {
+void MoonWatchy::drawCalendar(uint8_t Month, uint16_t Year) {
 	//Month calendar. Eventually, with caldav events...
 	/*
 Layout:					 
@@ -304,21 +317,20 @@ juni: add montshift[6]=4
 	 */
 	u8display->USEFONTSET(leaguegothic12pt);
 	u8display->setTextColor(FG);
-	uint16_t Year = tmYearToCalendar(currentTime.Year);
 	uint16_t startday = (Year - 1901) / 4 +
 		Year - 1900 +
-		monthshift[currentTime.Month];
-	uint16_t lastday = monthdays[currentTime.Month];
-	if (!(Year & 3)) {
-		if (currentTime.Month > 2) ++startday;
-		else if (currentTime.Month == 2) ++lastday;
+		monthshift[Month];
+	uint16_t lastday = monthdays[Month];
+	if (!(Year & 3)) { //Leap year specials
+		if (Month > 2) ++startday;
+		else if (Month == 2) ++lastday;
 	}
 	startday %= 7; //monday=0
 
 	int16_t x1, y1;
 	uint16_t w, h;
 	//Exact moon phase when this month starts:
-	float phase = moonphase(Year, currentTime.Month,
+	float phase = moonphase(Year, Month,
 			                    1, 0, 0);
 	float nextphase = phase + 1 / SYNODIC_MONTH;
 	if (nextphase >= 1) nextphase -= 1;
@@ -326,7 +338,7 @@ juni: add montshift[6]=4
 	//         y=50:  day headings
 	display.setCursor(60, 25);
 	u8display->setTextWrap(false);
-	u8display->print(monthfullname[currentTime.Month]);
+	u8display->print(monthfullname[Month]);
 	u8display->print(' ');
 	u8display->print(Year);
 	//ca 9.5 pix/char, or 19 pixles for two chars, 28 for a group
@@ -341,7 +353,8 @@ juni: add montshift[6]=4
 		u8display->getTextBounds(num[i], 0, 0, &x1, &y1, &w, &h);
 		display.setCursor(startday * 28 + 19 - x1 - w, line);
 		u8display->print(num[i]);
-		if (i == currentTime.Day) {
+		if (i == currentTime.Day && Month == currentTime.Month) {
+			//Mark today in the calendar
 			display.drawRoundRect(startday*28-1, line-25+3, 31, 27, 12, FG);
 			display.drawRoundRect(startday*28, line-25+4, 29, 25, 11, FG);
 		}
