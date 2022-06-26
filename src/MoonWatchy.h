@@ -27,6 +27,7 @@ class MoonWatchy : public Watchy{
 				void draw12hours();
 				void draw24hours();
 				void drawOwner();
+				void drawFlag(int16_t x, int16_t y);
 				void draw12hourHands(uint16_t hour12);
 				void draw24hourHands();
 				void drawNamePlate(float x, int16_t y);

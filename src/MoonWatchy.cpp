@@ -253,6 +253,23 @@ char const *MoonWatchy::zodiacsign(int month, int day) {
 }
 
 
+/*
+	 Draws the Norwegian flag, b&w version. Useful for marking the national day
+	 and similar. The size is minimal for a flag with correct proportions
+	 and all details.
+	 
+	 It is too big for calendar days, but works for the watch display.
+	 */
+void MoonWatchy::drawFlag(int16_t x, int16_t y) {
+	display.fillRect(x,    y,     6,  6, FG);
+	display.fillRect(x,    y+10,  6,  6, FG);
+	display.fillRect(x+10, y,    12,  6, FG);
+	display.fillRect(x+10, y+10, 12,  6, FG);
+	display.fillRect(x,    y+7,  22,  2, FG);
+	display.fillRect(x+7,  y,     2, 16, FG);
+}
+
+
 void MoonWatchy::drawCalendar(uint8_t Month, uint16_t Year) {
 	//Month calendar. Eventually, with caldav events...
 	/*
@@ -315,6 +332,7 @@ juni: add montshift[6]=4
 156 % 7 = 2 (wednesday)
 
 	 */
+	drawFlag(3,3);
 	u8display->USEFONTSET(leaguegothic12pt);
 	u8display->setTextColor(FG);
 	uint16_t startday = (Year - 1901) / 4 +
@@ -525,6 +543,7 @@ void MoonWatchy::draw12hours() {
 
 
 void MoonWatchy::draw24hours() {
+	drawFlag(0,0); //test
 	//Numbers & hour marks
 	int16_t x1, y1;
 	uint16_t width, height;
