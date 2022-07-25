@@ -100,6 +100,11 @@ void MoonWatchy::drawWatchFace(){
     display.setTextColor(FG);
 		u8display = new utf8_GFX(&display); //For utf-8 printing
 
+    // reset step counter at midnight
+    if (currentTime.Hour == 0 && currentTime.Minute == 0){
+      sensor.resetStepCounter();
+    }
+
 		switch (facenumber) {
 			case 6: //std 7 segment
 		    drawTime7();
