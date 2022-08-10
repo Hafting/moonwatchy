@@ -84,6 +84,8 @@ class OverrideGSR : public WatchyGSR {
 		bool InsertHandlePressed(uint8_t SwitchNumber, bool &Haptic, bool &Refresh);
 		char const *zodiacsign(int month, int day);
 		float moonphase(int year, int month, int day, int hour, int minute);
+		bool alarm_active_59min(int8_t alno);
+		void drawAlarmMin(int8_t min);
 		void drawDate(int16_t x, float y);
 		void draw12hours();
 		void draw24hours();
@@ -656,9 +658,43 @@ void OverrideGSR::draw24hours() {
 	}
 }
 
+extern RTC_DATA_ATTR     uint8_t   Alarms_Hour[4];
+extern RTC_DATA_ATTR     uint8_t   Alarms_Minutes[4];
+extern RTC_DATA_ATTR     uint16_t  Alarms_Active[4];   
 
+
+/*
+	Check if an alarm will fire in 0 to 59 minutes, so this fact may
+	be displayed on the watch face by highlighting a minute mark.
+  A: Alarms_Hour == this hour, and Alarms_Minutes >= this minute
+  B: Alarms_Hour == next hour, and Alarms_Minutes < this minute
+	in case A, also check if the alarm is active on this weekday
+	in case B, the next hour *might* be tomorrow, different day!
+	 */
+bool OverrideGSR::alarm_active_59min(int8_t alno) {
+	int8_t wday = WatchTime.Local.Wday;
+	if (Alarms_Hour[alno] == WatchTime.Local.Hour && 
+			Alarms_Minutes[alno] >= WatchTime.Local.Minute) {} else
+	if (Alarms_Hour[alno] == (WatchTime.Local.Hour + 1) % 24 &&
+				  Alarms_Minutes[alno] < WatchTime.Local.Minute) {
+		if (!Alarms_Hour[alno]) wday = (wday+1) % 7;
+	} else return false;
+	//alarm is within an hour, is it also active?
+	//correct day of week, and "repeat" or "active" or "!tripped"
+	//day bits: 0=sunday, 1=monday...
+	int16_t testbits = (1 << wday) | 256; //correct day, and "Active"
+  if ((testbits & Alarms_Active[alno]) == testbits) {
+		//Need either repeat(128) or not Tripped(512)
+		testbits = (Alarms_Active[alno] & (128 | 512)) ^ 512;
+		if (testbits) return true;
+	}		
+	return false;
+}
+
+//Draw minute marks on the clock face.
+//Also, show any alarms that will sound 0-59 minutes from now.
 void OverrideGSR::drawMinuteMarks() {
-	//Minute marks
+	//Draw minute marks
 	int ii = 0;
 	for (int i = 0; i < 60; ++i) {
 		float a = radians(i*6);
@@ -674,7 +710,27 @@ void OverrideGSR::drawMinuteMarks() {
 		}
 		if (++ii == 5) ii = 0;
 	}
+
+	//Now check the alarms
+	for (int j=0; j<4; ++j) if (alarm_active_59min(j)) {
+		drawAlarmMin(Alarms_Minutes[j]);
+	}
+
 }
+
+
+//Show that an alarm will go off at the chosen minute:
+void OverrideGSR::drawAlarmMin(int8_t min) {
+	float a = radians(min*6);
+	float sin_a;// = sin(a);
+	float cos_a;// = cos(a);
+	sincosf(a, &sin_a, &cos_a);
+	int16_t x = 100+99.5*sin_a;
+	int16_t y = 100-99.5*cos_a;
+	display.fillCircle(x, y, 5, FG);
+	display.fillCircle(x, y, 3, BG);
+}
+
 
 
 void OverrideGSR::drawDate(int16_t x, float y) {
