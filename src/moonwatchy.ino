@@ -56,7 +56,7 @@ char const * const monthname[12] = {"JAN", "FEB", "MAR", "APR", "MAI", "JUN", "J
 char const * const monthfullname[12] = {"januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"};
 
 char const * const dayname2[7] = {"ma", "ti", "on", "to", "fr", "lø", "sø"};
-char const * const dayname[8] = {"", "SØN", "MAN", "TIR", "ONS", "TOR", "FRE", "LØR"};
+char const * const dayname[7] = {"SØN", "MAN", "TIR", "ONS", "TOR", "FRE", "LØR"};
 const char *num[32] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"};
 
 //Zodiac symbols, and the dates they change:
@@ -196,18 +196,6 @@ class OverrideGSR : public WatchyGSR {
     };
 
 
-/*
-    void InsertDrawWatchStyle(uint8_t StyleID){
-      if (StyleID == MyStyle){
-            if (SafeToDraw()){
-                drawTime();
-                drawDay();
-                drawYear();
-            }
-            if (NoMenu()) drawDate();
-      }
-    };
-*/
 void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	//StyleID
 	//0: 12 hour hands
