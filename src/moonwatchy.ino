@@ -40,6 +40,11 @@
 //Macro simplifying the use of fontsets
 #define USEFONTSET(f) setFontSet((f), sizeof(f)/sizeof(const GFXfont *))
 
+//Expose Watchy_GSR stuff that is needed:
+extern RTC_DATA_ATTR     uint8_t   Alarms_Hour[4];
+extern RTC_DATA_ATTR     uint8_t   Alarms_Minutes[4];
+extern RTC_DATA_ATTR     uint16_t  Alarms_Active[4];   
+
 //Font sets for UTF-8 printing:
 const GFXfont *Engine5pt[2] = {&Engine5pt7b, &Engine5pt8b}; 
 
@@ -658,10 +663,6 @@ void OverrideGSR::draw24hours() {
 	}
 }
 
-extern RTC_DATA_ATTR     uint8_t   Alarms_Hour[4];
-extern RTC_DATA_ATTR     uint8_t   Alarms_Minutes[4];
-extern RTC_DATA_ATTR     uint16_t  Alarms_Active[4];   
-
 
 /*
 	Check if an alarm will fire in 0 to 59 minutes, so this fact may
@@ -727,8 +728,9 @@ void OverrideGSR::drawAlarmMin(int8_t min) {
 	sincosf(a, &sin_a, &cos_a);
 	int16_t x = 100+99.5*sin_a;
 	int16_t y = 100-99.5*cos_a;
-	display.fillCircle(x, y, 5, FG);
+	display.fillCircle(x, y, 6, FG);
 	display.fillCircle(x, y, 3, BG);
+	display.drawPixel(x, y, FG);
 }
 
 
