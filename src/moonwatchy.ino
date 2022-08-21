@@ -123,6 +123,7 @@ class OverrideGSR : public WatchyGSR {
 		void drawCalendar(uint8_t Month, uint16_t Year);
 		void drawOwner();
 		void drawSteps(uint32_t steps);
+		void drawClockSteps(uint32_t steps);
 };
 
 /*
@@ -282,6 +283,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 				else drawDate(46, 99.5);
 
 			}
+			drawClockSteps(SBMA.getCounter());
 			break;
 		case 1: //Calendar for this month
 			drawCalendar(WatchTime.Local.Month, WatchTime.Local.Year + 1900);
@@ -357,6 +359,89 @@ void OverrideGSR::drawSteps(uint32_t steps) {
 		if (steps >= 100000) u8display->print("☻"); //Something of an easter egg...
 	}	
 }
+
+
+//Small step count outside the clock face circle
+//To the right:  a rotating hand, rotates once per 1000 steps
+//To the left: "mechanical" counter showing how many k-steps.
+void OverrideGSR::drawClockSteps(uint32_t steps) {
+	float a, sin_a, cos_a;
+	int16_t rot = steps % 1000;
+
+	//Outer ring and inner dot
+	display.drawCircle(184, 184, 15, FG);
+	display.fillCircle(184, 184, 4, FG);
+
+	//10 marks around the edge
+	for (int i = 0; i < 9; ++i) {
+		a = radians(i * 360.0 / 10);
+		sincosf(a, &sin_a, &cos_a);
+
+	}
+  display.drawLine(184, 199, 184, 196, FG); //500
+	display.drawLine(184, 169, 184, 172, FG); //000
+	sincosf(radians(36.0), &sin_a, &cos_a);
+	display.drawLine(184.5 + 15*sin_a, 184.5 - 15*cos_a, 
+	         184.5 + 12*sin_a, 184.5 - 12*cos_a, FG); //100
+	display.drawLine(184.5 - 15*sin_a, 184.5 + 15*cos_a, 
+	         184.5 - 12*sin_a, 184.5 + 12*cos_a, FG); //600
+	display.drawLine(184.5 - 15*sin_a, 184.5 - 15*cos_a, 
+	         184.5 - 12*sin_a, 184.5 - 12*cos_a, FG); //900
+	display.drawLine(184.5 + 15*sin_a, 184.5 + 15*cos_a, 
+	         184.5 + 12*sin_a, 184.5 + 12*cos_a, FG); //400
+	sincosf(radians(72.0), &sin_a, &cos_a);
+	display.drawLine(184.5 + 15*sin_a, 184.5 - 15*cos_a, 
+	         184.5 + 12*sin_a, 184.5 - 12*cos_a, FG); //200
+	display.drawLine(184.5 - 15*sin_a, 184.5 + 15*cos_a, 
+	         184.5 - 12*sin_a, 184.5 + 12*cos_a, FG); //700
+	display.drawLine(184.5 - 15*sin_a, 184.5 - 15*cos_a, 
+	         184.5 - 12*sin_a, 184.5 - 12*cos_a, FG); //800
+	display.drawLine(184.5 + 15*sin_a, 184.5 + 15*cos_a, 
+	         184.5 + 12*sin_a, 184.5 + 12*cos_a, FG); //300
+
+	//Rotating hand:
+	a = radians(rot * 360.0 / 1000);
+	sincosf(a, &sin_a, &cos_a);
+	//No need to call fsincos again, using the fact that:
+	//sin(a+90) = cos(a), cos(a+90) = -sin(a)
+	//sin(a-90) = -cos(a), cos(a-90) = sin(a)
+
+	display.fillTriangle(184.5 + 15*sin_a, 184.5 - 15*cos_a,
+	                     184.5 -  4*cos_a, 184.5 -  4*sin_a,
+	                     184.5 +  4*cos_a, 184.5 +  4*sin_a,
+	                     FG);
+	steps /= 1000;
+	u8display->USEFONTSET(leaguegothic12pt);
+	int16_t x1, y1;
+	uint16_t width, height;
+	u8display->getTextBounds("8", 1, 196, &x1, &y1, &width, &height);
+	//x1,y1: UL corner
+	int digit[2]; //So maximum 99000 steps...
+	digit[0] = steps % 10; steps /= 10;
+	digit[1] = steps % 10; steps /= 10;
+	int digit_i = 1;
+	//Skip leading zeroes:
+	int16_t x = 0;
+	while (digit_i && ! digit[digit_i] && !steps) {
+		--digit_i;
+		x += width + 8;
+		x1 += width + 8;
+	}
+	//Draw "mechanical counter"
+	do {
+		display.fillRect(x1-3, y1-3, width+6, height+6, FG);
+		int16_t off = (digit[digit_i] == 1 || digit[digit_i] == 7) ? 1 : 0;
+		display.setCursor(x+1+off, 196);
+		u8display->setTextColor(BG);
+		u8display->print(!steps ? num[digit[digit_i]] : "X");
+		x += width + 8;
+		x1 += width + 8;
+	} while (digit_i--);
+	u8display->setTextColor(FG);
+	display.setCursor(x-1, 198);
+	u8display->print("k");
+}
+
 
 //Returns correct zodiac sign for the given day, ptr to utf8 string
 char const *OverrideGSR::zodiacsign(int month, int day) {
