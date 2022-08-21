@@ -122,6 +122,7 @@ class OverrideGSR : public WatchyGSR {
 		void drawMoon();
 		void drawCalendar(uint8_t Month, uint16_t Year);
 		void drawOwner();
+		void drawSteps(uint32_t steps);
 };
 
 /*
@@ -327,22 +328,35 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 
 			display.setFont(&FreeSansBold15pt7b); //numeric only
 			display.setCursor(45, 92);
-			display.print(SBMA.getCounter());
+			drawSteps(SBMA.getCounter());
 			display.setCursor(45,122);
-			display.print(Steps.Yesterday);
+			drawSteps(Steps.Yesterday);
 
 			//battery
 			display.setCursor(5, 160);
 			u8display->print("Batteri: ");
-			u8display->print(getBatteryVoltage());
-			u8display->print("V  Min: ");
-			u8display->print(Battery.MinLevel);
-			u8display->print("V");
+			float battvolt = getBatteryVoltage();
+			float const battmax = 4.26;
+			u8display->print(battvolt); //max is 4.26? Can calc. a percentage
+			u8display->print("V   ");
+			u8display->print((int) ((battvolt-Battery.MinLevel)/(battmax-Battery.MinLevel)*100));
+			u8display->print("% ");
+			u8display->print(Battery.Direction == 1 ? "☝" : "☟"); //Charging indicator
+
 	}
 
 		delete u8display; //could be more persistent?			
 };
 
+//Draws a number, assumed to be steps. Assumes fonts & position are set up
+//Adds smiles if over 10.000 or 100.000
+void OverrideGSR::drawSteps(uint32_t steps) {
+	display.print(steps);
+	if (steps >= 10000 ) {
+		u8display->print("  ☺");
+		if (steps >= 100000) u8display->print("☻"); //Something of an easter egg...
+	}	
+}
 
 //Returns correct zodiac sign for the given day, ptr to utf8 string
 char const *OverrideGSR::zodiacsign(int month, int day) {
