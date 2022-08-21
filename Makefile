@@ -22,7 +22,7 @@ update: $(DEPS)
 	pio -f -c vim update
 
 include/UechiGothic20num.h: fonts/Uechi\ Gothic.ttf
-	fontconvert fonts/Uechi\ Gothic.ttf 20 48 57 > include/UechiGothic20num.h
+	fontconvert fonts/Uechi\ Gothic.ttf 20 48 58 > include/UechiGothic20num.h
 
 include/Gogh_ExtraBold7A_T.h: fonts/Gogh-ExtraBold.ttf
 	fontconvert fonts/Gogh-ExtraBold.ttf 7 65 84 > include/Gogh_ExtraBold7A_T.h

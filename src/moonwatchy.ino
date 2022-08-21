@@ -45,9 +45,30 @@ extern RTC_DATA_ATTR     uint8_t   Alarms_Hour[4];
 extern RTC_DATA_ATTR     uint8_t   Alarms_Minutes[4];
 extern RTC_DATA_ATTR     uint16_t  Alarms_Active[4];   
 
+extern RTC_DATA_ATTR struct Stepping final {
+    uint8_t Hour;
+    uint8_t Minutes;
+    bool Reset;
+    uint32_t Yesterday;
+} Steps;
+
+extern RTC_DATA_ATTR struct BatteryUse final {
+    float Last;             // Used to track battery changes, only updates past 0.01 in change.
+    int8_t Direction;       // -1 for draining, 1 for charging.
+    int8_t DarkDirection;   // Direction copy for Options.SleepMode.
+    int8_t UpCount;         // Counts how many times the battery is in a direction to determine true charging.
+    int8_t DownCount;
+    int8_t State;           // 0=not visible, 1= showing chargeme, 2= showing reallychargeme, 3=showing charging.
+    int8_t DarkState;       // Dark state of above.
+    float MinLevel;         // Lowest level before the indicator comes on.
+    float LowLevel;         // The battery is about to get too low for the RTC to function.
+} Battery;
+
 //Font sets for UTF-8 printing:
 const GFXfont *Engine5pt[2] = {&Engine5pt7b, &Engine5pt8b}; 
 
+//Text: leaguegothic, because it is a narrow font covering ascii & latin extensions
+//Symbols taken from FreeSerif, because it has just about anything 
 const GFXfont *leaguegothic12pt[4] = {&leaguegothic_regular_webfont12pt7b, &leaguegothic_regular_webfont12pt8b, &FreeSerif8pt8b, &FreeSerif12pt8b};
 
 //Various texts, using utf8
@@ -203,7 +224,19 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	if (!SafeToDraw()) return;
 
 	u8display = new utf8_GFX(&display); //For utf-8 printing
+  /*
+		Substyles:
+		0 main watch face (12 or 24 hour, with hands) moon phase
+		  day+date+month+zodiac sign
+		1 Calendar for this month
+		2 Calendar for next month
+		3 picture of owner
+		4 ->7
+		5 ->7
+		6 ->3
+		7 display step counter, battery status, whatever other tech info that fits
 
+	*/
 	switch (subStyle) {
 		case 0: //12 or 24 hour analog watch
 			if (StyleID) {
@@ -263,9 +296,48 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 				drawCalendar(month, year);
 			}
 			break;
+		case 6: //unused
+			subStyle = 3;
+			//fall through deliberately
 		case 3: //Picture of owner
 			drawOwner();
 			break;
+		case 4: //unused
+		case 5: //unused
+			subStyle = 7;
+			//fall through deliberately
+		case 7: //Various sensor info: steps, battery. Also shows time
+			//Time+date
+			drawDate(170,25);
+			u8display->USEFONTSET(leaguegothic12pt);
+			display.setCursor(5, 30);
+			u8display->print("Tid:");
+			display.setFont(&Uechi_Gothic20pt7b);
+			display.setCursor(45,31);
+			display.print(WatchTime.Local.Hour);
+			display.print(":"); 
+			if (WatchTime.Local.Minute < 10) display.print("0");
+			display.print(WatchTime.Local.Minute);
+
+			//steps
+			display.setCursor(5,90);
+			u8display->print("Steg:");
+			display.setCursor(5,120);
+			u8display->print("I går:");
+
+			display.setFont(&FreeSansBold15pt7b); //numeric only
+			display.setCursor(45, 92);
+			display.print(SBMA.getCounter());
+			display.setCursor(45,122);
+			display.print(Steps.Yesterday);
+
+			//battery
+			display.setCursor(5, 160);
+			u8display->print("Batteri: ");
+			u8display->print(getBatteryVoltage());
+			u8display->print("V  Min: ");
+			u8display->print(Battery.MinLevel);
+			u8display->print("V");
 	}
 
 		delete u8display; //could be more persistent?			
@@ -800,12 +872,12 @@ bool OverrideGSR::InsertHandlePressed(uint8_t SwitchNumber, bool &Haptic, bool &
 			return true;  // Respond with "I used a button", so the WatchyGSR knows you actually did something with a button.
 			break;
 		case 3: //Up, next watch face
-			subStyle = (subStyle + 1) & 3;
+			subStyle = (subStyle + 1) & 7;
 			showWatchFace();
 			return true;
 			break;
 		case 4: //Down, previous watch face
-			subStyle = (subStyle - 1) & 3;
+			subStyle = (subStyle - 1) & 7;
 			showWatchFace();
 			return true;
 	}
