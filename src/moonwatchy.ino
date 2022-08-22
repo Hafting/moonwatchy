@@ -86,10 +86,67 @@ char const *zodiacsym[12] = {"♑︎", "♒︎", "♓︎", "♈︎", "♉︎", "
 //                              jan feb mar apr may jun jul aug sep oct nov dec
 uint8_t const zodiacdate[12] = {19, 18, 20, 19, 20, 21, 22, 22, 22, 23, 21, 21};
 
-//index 0 is invalid, january is 1.
-const int monthdays[] = {31,28,31,30,31,30,31,31,30,31,30,31};
-const int monthshift[] = {0,3,3,6,1,4,6,2,5,0,3,5};
 
+int const monthdays[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+int const monthshift[] = {0,3,3,6,1,4,6,2,5,0,3,5};
+
+//Sine table for avoiding calls to sincosf()
+//sines for 0, 6, 12, 18, ..., 84, 90 degrees
+float const sine[] = {
+0.0000000,	// 0
+0.1045285,	// 6
+0.2079117,	//12
+0.3090170,	//18
+0.4067366,	//24
+0.5000000,	//30
+0.5877852,	//36
+0.6691306,	//42
+0.7431449,	//48
+0.8090170,	//54
+0.8660254,	//60
+0.9135455,	//66
+0.9510565,	//72
+0.9781476,	//78
+0.9945219,	//84
+1.0000000	//90
+};
+/*
+	sines and cosines for other quadrants:
+	cos(a) = sin(a+90)
+	sin(360-a) = -sin(a)
+	sin(180+a) = -sin(a)
+	sin(180-a) = sin(a)
+
+  
+  Trigonometry:
+	            sin(a)             cos(a)
+	0<=a<=90    sine[a/6];         sine[(90-a)/6]
+	90<=a<=180  sine[(180-a)/6];   -sine[(a-90)/6]
+	180<=a<=270 -sine[(a-180)/6];  -sine[(270-a)/6]
+	270<=a<=360 -sine[(360-a)/6];  sine[(a-270)/6]
+	Optimize by dividing by 6 early:
+	 */
+//table-based sincos. The angle a is in degrees, not radians.
+void sincost(int a, float *sin_a, float *cos_a) {
+	a /= 6;
+	if (a <= 30) {         // <= 180
+		if (a <= 15) {       // <= 90
+			*sin_a = sine[a];
+			*cos_a = sine[15-a];
+		} else {             // 90..180
+			*sin_a = sine[30-a];
+			*cos_a = -sine[a-15];
+		}
+	} else {
+		if (a <= 45) {       //180..270
+			*sin_a = -sine[a-30];
+			*cos_a = -sine[45-a];
+		} else {             //270..360
+			*sin_a = -sine[60-a];
+			*cos_a = sine[a-45];
+		}
+	}
+}
 
 // Place all of your data and variables here.
 
