@@ -201,10 +201,10 @@ float const sine[] = {
 	270<=a<=360 -sine[360-a];    sine[a-270]
 	 */
 //table-based sincos. The angle a is in degrees, not radians.
-void sincost(int a, float *sin_a, float *cos_a) {
+void sincost(int a, float *const sin_a, float *const cos_a) {
 	//Sanitize:
 	if (a > 360) a %= 360;
-	else if (a < 0) a = 360 - (a % 360);
+	else if (a < 0) a = 360 + (a % 360);
 	//sincos
 	if (a <= 180) {        // <= 180
 		if (a <= 90) {       // <= 90
@@ -395,12 +395,19 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 				draw12hourHands(hour12);
 
 				//Name and date should move out of the way of the short hand
+				//Also, avoid the long hand when the short hand isn't in the alternate location
 
-				//Short hand needs the space about 10:30-1:30
+				//The short hand needs the space about 10:30-1:30
 				//10:37-1:23, avoiding unnecessary crash with the long hand
+				/*The long hand needs the space about x:55-x:05, unless the short hand points to 5,6,7
+          Note that at 4:55, the sort hand almost points to 5.
+					At 7:55, it almost points to 8.
+				*/
 				if (hour12 >= 11 || 
 						(hour12 == 10 && WatchTime.Local.Minute >= 37) ||
-						(hour12 == 1 && WatchTime.Local.Minute < 23)) {
+						(hour12 == 1 && WatchTime.Local.Minute < 23) ||
+						(WatchTime.Local.Minute <= 5 && (hour12 < 5 || hour12 > 7)) ||
+						(WatchTime.Local.Minute >= 55 && (hour12 < 4 || hour12 > 6)) ) {
 					//Move name away from the small hand
 					drawNamePlate(99.5, 151);       
 				} else drawNamePlate(99.5, 48); //normal place
