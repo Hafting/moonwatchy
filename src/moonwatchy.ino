@@ -781,14 +781,13 @@ juni: add montshift[6]=4
 void OverrideGSR::draw24hourHands() {
   //Short hand
   int a = WatchTime.Local.Hour*15+WatchTime.Local.Minute/4; //15 degrees per hour, one degree every 4 minutes
-  int a1 = a - 22, a2 = a + 22; 
 
   float sin_a, cos_a, sin_a1, cos_a1, sin_a2, cos_a2;
                                       //Triangular hand, with white stripe
                                       //two triangles, avoid overpainting the moon
 	sincost(a, &sin_a, &cos_a);
-	sincost(a1, &sin_a1, &cos_a1);
-	sincost(a2, &sin_a2, &cos_a2);
+	sincost(a-22, &sin_a1, &cos_a1);
+	sincost(a+22, &sin_a2, &cos_a2);
   display.fillTriangle(100+33*sin_a, 100-33*cos_a,
       100+69*sin_a, 100-69*cos_a,
       100+33*sin_a1, 100-33*cos_a1, FG);
@@ -800,10 +799,9 @@ void OverrideGSR::draw24hourHands() {
 
   //Long thin hand with white stripe
   a = WatchTime.Local.Minute * 6;
-  a1 = a - 11; a2 = a + 11;
 	sincost(a, &sin_a, &cos_a);
-	sincost(a1, &sin_a1, &cos_a1);
-	sincost(a2, &sin_a2, &cos_a2);
+	sincost(a-11, &sin_a1, &cos_a1);
+	sincost(a+11, &sin_a2, &cos_a2);
   display.fillTriangle(100+33*sin_a2, 100-33*cos_a2,
       100+88*sin_a, 100-88*cos_a,
       100+33*sin_a1, 100-33*cos_a1, FG);
@@ -820,7 +818,7 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	//Polar: x=r sin a, y=-r cos a. Zero degrees is "up"
 
 	float sin_a, cos_a, sin_a1, cos_a1, sin_a2, cos_a2;
-	int16_t x1, y1, a, a1, a2;
+	int16_t x1, y1, a;
 
 	a = WatchTime.Local.Minute * 6;
 	sincost(a, &sin_a, &cos_a);
@@ -831,32 +829,30 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	display.fillCircle(100+34*sin_a, 100-34*cos_a, 4, FG);
 
 
-	a1 = a+2; //right ring 1.38
-	sincost(a1, &sin_a1, &cos_a1);
+	//right ring
+	sincost(a+2, &sin_a1, &cos_a1);
 	x1 = 100+42*sin_a1; y1 =  100-42*cos_a1;
 	display.drawCircle(x1, y1, 4, FG);
 	display.drawCircle(x1, y1, 5, FG);
 
-	a1 = a1+7; //right dot .091 .110   (6.82)
-	sincost(a1, &sin_a1, &cos_a1);
+	//right dot
+	sincost(a+9, &sin_a1, &cos_a1);
 	display.fillCircle(100+42*sin_a1, 100-42*cos_a1, 2, FG);
 
-	a1 = a-2; //left ring  (2.29)  
-	sincost(a1, &sin_a1, &cos_a1);
+	//left ring  
+	sincost(a-2, &sin_a1, &cos_a1);
 	x1 = 100+49.75*sin_a1; y1 = 100-49.75*cos_a1;
 	display.drawCircle(x1, y1, 4, FG);
 	display.drawCircle(x1, y1, 5, FG);
 
-	a1 = a1-6; //left dot .081 .105 (5.79)
-	sincost(a1, &sin_a1, &cos_a1);
+	//left dot 
+	sincost(a-8, &sin_a1, &cos_a1);
 	display.fillCircle(100+49.75*sin_a1, 100-49.75*cos_a1, 2, FG);
 
 	//Long triangle, give this hand some mass
-	a1 = a-3; //2.86
-	sincost(a1, &sin_a1, &cos_a1);
+	sincost(a-3, &sin_a1, &cos_a1);
 	x1 = 100+55*sin_a1; y1 = 100-55*cos_a1; 
-	a1 = a+3; //2.86
-	sincost(a1, &sin_a1, &cos_a1);
+	sincost(a+3, &sin_a1, &cos_a1);
 	display.fillTriangle(x1, y1, 
 			100+55*sin_a1, 100-55*cos_a1,
 			100+81*sin_a, 100-81*cos_a, FG);
@@ -872,25 +868,25 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	//connecting blob
 	display.fillCircle(100+35*sin_a, 100-35*cos_a, 5, FG);
 
-	a1 = a-8; //center left ring 0.13:7.45
-	sincost(a1, &sin_a1, &cos_a1);
+	//center left ring
+	sincost(a-8, &sin_a1, &cos_a1);
 	x1 = 100 + 43.3*sin_a1; y1 = 100 - 43.3*cos_a1;
 	display.drawCircle(x1, y1, 5, FG);
 	display.drawCircle(x1, y1, 6, FG);
 
-	a1 = a1-8; //left dot
-	sincost(a1, &sin_a1, &cos_a1);
+	//left dot
+	sincost(a-16, &sin_a1, &cos_a1);
 	x1 = 100 + 43.4*sin_a1; y1 = 100 - 43.4*cos_a1;
 	display.fillCircle(x1, y1, 2, FG);
 
-	a1 = a+8; //center right ring
-	sincost(a1, &sin_a1, &cos_a1);
+	//center right ring
+	sincost(a+8, &sin_a1, &cos_a1);
 	x1 = 100 + 43.3*sin_a1; y1 = 100 - 43.3*cos_a1;
 	display.drawCircle(x1, y1, 5, FG);
 	display.drawCircle(x1, y1, 6, FG);
 
-	a1 = a1+8; //right dot
-	sincost(a1, &sin_a1, &cos_a1);
+	//right dot
+	sincost(a+16, &sin_a1, &cos_a1);
 	x1 = 100 + 43.4*sin_a1; y1 = 100 - 43.4*cos_a1;
 	display.fillCircle(x1, y1, 2, FG);
 
@@ -903,10 +899,8 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	display.fillCircle(100+60*sin_a, 100-60*cos_a, 3, FG);
 
 	//tip
-	a1 = a - 2; //0.034:1.95
-	a2 = a + 2;
-	sincost(a1, &sin_a1, &cos_a1);
-	sincost(a2, &sin_a2, &cos_a2);
+	sincost(a-2, &sin_a1, &cos_a1);
+	sincost(a+2, &sin_a2, &cos_a2);
 	display.fillTriangle(100+58*sin_a1, 100-58*cos_a1,
 			100+58*sin_a2, 100-58*cos_a2,
 			100+74*sin_a, 100-74*cos_a, FG);   
