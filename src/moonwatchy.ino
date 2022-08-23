@@ -199,10 +199,13 @@ float const sine[] = {
 	90<=a<=180   sine[180-a];   -sine[a-90]
 	180<=a<=270 -sine[a-180];   -sine[270-a]
 	270<=a<=360 -sine[360-a];    sine[a-270]
-	Optimize by dividing by 6 early:
 	 */
 //table-based sincos. The angle a is in degrees, not radians.
 void sincost(int a, float *sin_a, float *cos_a) {
+	//Sanitize:
+	if (a > 360) a %= 360;
+	else if (a < 0) a = 360 - (a % 360);
+	//sincos
 	if (a <= 180) {        // <= 180
 		if (a <= 90) {       // <= 90
 			*sin_a = sine[a];
@@ -496,7 +499,7 @@ void OverrideGSR::drawSteps(uint32_t steps) {
 //To the right:  a rotating hand, rotates once per 1000 steps
 //To the left: "mechanical" counter showing how many k-steps.
 void OverrideGSR::drawClockSteps(uint32_t steps) {
-	float a, sin_a, cos_a;
+	float sin_a, cos_a;
 	int16_t rot = steps % 1000;
 
 	//Outer ring and inner dot
@@ -504,39 +507,16 @@ void OverrideGSR::drawClockSteps(uint32_t steps) {
 	display.fillCircle(184, 184, 4, FG);
 
 	//10 marks around the edge
-	for (int i = 0; i < 9; ++i) {
-		a = radians(i * 360.0 / 10);
-		sincosf(a, &sin_a, &cos_a);
-
+	for (int16_t a = 0; a < 360; a += 36) {
+		sincost(a, &sin_a, &cos_a);
+		display.drawLine(184.5 + 15*sin_a, 184.5 - 15*cos_a,
+		                 184.5 + 12*sin_a, 184.5 - 12*cos_a, FG);
 	}
-  display.drawLine(184, 199, 184, 196, FG); //500
-	display.drawLine(184, 169, 184, 172, FG); //000
-	sincosf(radians(36.0), &sin_a, &cos_a);
-	display.drawLine(184.5 + 15*sin_a, 184.5 - 15*cos_a, 
-	         184.5 + 12*sin_a, 184.5 - 12*cos_a, FG); //100
-	display.drawLine(184.5 - 15*sin_a, 184.5 + 15*cos_a, 
-	         184.5 - 12*sin_a, 184.5 + 12*cos_a, FG); //600
-	display.drawLine(184.5 - 15*sin_a, 184.5 - 15*cos_a, 
-	         184.5 - 12*sin_a, 184.5 - 12*cos_a, FG); //900
-	display.drawLine(184.5 + 15*sin_a, 184.5 + 15*cos_a, 
-	         184.5 + 12*sin_a, 184.5 + 12*cos_a, FG); //400
-	sincosf(radians(72.0), &sin_a, &cos_a);
-	display.drawLine(184.5 + 15*sin_a, 184.5 - 15*cos_a, 
-	         184.5 + 12*sin_a, 184.5 - 12*cos_a, FG); //200
-	display.drawLine(184.5 - 15*sin_a, 184.5 + 15*cos_a, 
-	         184.5 - 12*sin_a, 184.5 + 12*cos_a, FG); //700
-	display.drawLine(184.5 - 15*sin_a, 184.5 - 15*cos_a, 
-	         184.5 - 12*sin_a, 184.5 - 12*cos_a, FG); //800
-	display.drawLine(184.5 + 15*sin_a, 184.5 + 15*cos_a, 
-	         184.5 + 12*sin_a, 184.5 + 12*cos_a, FG); //300
-
 	//Rotating hand:
-	a = radians(rot * 360.0 / 1000);
-	sincosf(a, &sin_a, &cos_a);
-	//No need to call fsincos again, using the fact that:
+	sincost(rot * 36 / 100, &sin_a, &cos_a);
+	//No need to call sincos again, using the fact that:
 	//sin(a+90) = cos(a), cos(a+90) = -sin(a)
 	//sin(a-90) = -cos(a), cos(a-90) = sin(a)
-
 	display.fillTriangle(184.5 + 15*sin_a, 184.5 - 15*cos_a,
 	                     184.5 -  4*cos_a, 184.5 -  4*sin_a,
 	                     184.5 +  4*cos_a, 184.5 +  4*sin_a,
@@ -800,14 +780,15 @@ juni: add montshift[6]=4
 
 void OverrideGSR::draw24hourHands() {
   //Short hand
-  float a = radians((WatchTime.Local.Hour+WatchTime.Local.Minute/60.0)*15);
+  int a = WatchTime.Local.Hour*15+WatchTime.Local.Minute/4; //15 degrees per hour, one degree every 4 minutes
+  int a1 = a - 22, a2 = a + 22; 
+
   float sin_a, cos_a, sin_a1, cos_a1, sin_a2, cos_a2;
-  float a1 = a - 0.37, a2 = a + 0.37; //suitable width in radians
                                       //Triangular hand, with white stripe
                                       //two triangles, avoid overpainting the moon
-	sincosf(a, &sin_a, &cos_a);
-	sincosf(a1, &sin_a1, &cos_a1);
-	sincosf(a2, &sin_a2, &cos_a2);
+	sincost(a, &sin_a, &cos_a);
+	sincost(a1, &sin_a1, &cos_a1);
+	sincost(a2, &sin_a2, &cos_a2);
   display.fillTriangle(100+33*sin_a, 100-33*cos_a,
       100+69*sin_a, 100-69*cos_a,
       100+33*sin_a1, 100-33*cos_a1, FG);
@@ -818,11 +799,11 @@ void OverrideGSR::draw24hourHands() {
       100+65*sin_a, 100-65*cos_a, BG);
 
   //Long thin hand with white stripe
-  a = radians(WatchTime.Local.Minute * 6);
-  a1 = a - 0.19; a2 = a + 0.19;
-	sincosf(a, &sin_a, &cos_a);
-	sincosf(a1, &sin_a1, &cos_a1);
-	sincosf(a2, &sin_a2, &cos_a2);
+  a = WatchTime.Local.Minute * 6;
+  a1 = a - 11; a2 = a + 11;
+	sincost(a, &sin_a, &cos_a);
+	sincost(a1, &sin_a1, &cos_a1);
+	sincost(a2, &sin_a2, &cos_a2);
   display.fillTriangle(100+33*sin_a2, 100-33*cos_a2,
       100+88*sin_a, 100-88*cos_a,
       100+33*sin_a1, 100-33*cos_a1, FG);
@@ -838,11 +819,11 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	//60 positions, 6 degrees between minute marks
 	//Polar: x=r sin a, y=-r cos a. Zero degrees is "up"
 
-	float a, a1, a2, sin_a, cos_a, sin_a1, cos_a1, sin_a2, cos_a2;
-	int16_t x1, y1;
+	float sin_a, cos_a, sin_a1, cos_a1, sin_a2, cos_a2;
+	int16_t x1, y1, a, a1, a2;
 
-	a = radians(WatchTime.Local.Minute * 6);
-	sincosf(a, &sin_a, &cos_a);
+	a = WatchTime.Local.Minute * 6;
+	sincost(a, &sin_a, &cos_a);
 
 	display.drawLine(100+79*sin_a, 100-79*cos_a, 100+98*sin_a, 100-98*cos_a, FG);
 
@@ -850,32 +831,32 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	display.fillCircle(100+34*sin_a, 100-34*cos_a, 4, FG);
 
 
-	a1 = a+0.024; //right ring
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a+2; //right ring 1.38
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100+42*sin_a1; y1 =  100-42*cos_a1;
 	display.drawCircle(x1, y1, 4, FG);
 	display.drawCircle(x1, y1, 5, FG);
 
-	a1 = a1+0.119; //right dot .091 .110
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a1+7; //right dot .091 .110   (6.82)
+	sincost(a1, &sin_a1, &cos_a1);
 	display.fillCircle(100+42*sin_a1, 100-42*cos_a1, 2, FG);
 
-	a1 = a-0.040; //left ring  
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a-2; //left ring  (2.29)  
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100+49.75*sin_a1; y1 = 100-49.75*cos_a1;
 	display.drawCircle(x1, y1, 4, FG);
 	display.drawCircle(x1, y1, 5, FG);
 
-	a1 = a1-0.101; //left dot .081 .105
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a1-6; //left dot .081 .105 (5.79)
+	sincost(a1, &sin_a1, &cos_a1);
 	display.fillCircle(100+49.75*sin_a1, 100-49.75*cos_a1, 2, FG);
 
 	//Long triangle, give this hand some mass
-	a1 = a-0.050;
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a-3; //2.86
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100+55*sin_a1; y1 = 100-55*cos_a1; 
-	a1 = a+0.050;
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a+3; //2.86
+	sincost(a1, &sin_a1, &cos_a1);
 	display.fillTriangle(x1, y1, 
 			100+55*sin_a1, 100-55*cos_a1,
 			100+81*sin_a, 100-81*cos_a, FG);
@@ -883,33 +864,33 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	//Blob near the tip, for visibility
 	display.fillCircle(100+94.5*sin_a, 100-94.5*cos_a, 2, FG);
 
-
+	
 	//Short hand .Hour  360/12=30 degrees per hour
-	a = radians((hour12+WatchTime.Local.Minute/60.0)*30);
-	sincosf(a, &sin_a, &cos_a);
+	a = hour12*30 + WatchTime.Local.Minute/2; //30 degrees per hour, half a degree per minute
+	sincost(a, &sin_a, &cos_a);
 
 	//connecting blob
 	display.fillCircle(100+35*sin_a, 100-35*cos_a, 5, FG);
 
-	a1 = a-0.13; //center left ring
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a-8; //center left ring 0.13:7.45
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100 + 43.3*sin_a1; y1 = 100 - 43.3*cos_a1;
 	display.drawCircle(x1, y1, 5, FG);
 	display.drawCircle(x1, y1, 6, FG);
 
-	a1 = a1-0.13; //left dot
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a1-8; //left dot
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100 + 43.4*sin_a1; y1 = 100 - 43.4*cos_a1;
 	display.fillCircle(x1, y1, 2, FG);
 
-	a1 = a+0.13; //center right ring
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a+8; //center right ring
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100 + 43.3*sin_a1; y1 = 100 - 43.3*cos_a1;
 	display.drawCircle(x1, y1, 5, FG);
 	display.drawCircle(x1, y1, 6, FG);
 
-	a1 = a1+0.13; //right dot
-	sincosf(a1, &sin_a1, &cos_a1);
+	a1 = a1+8; //right dot
+	sincost(a1, &sin_a1, &cos_a1);
 	x1 = 100 + 43.4*sin_a1; y1 = 100 - 43.4*cos_a1;
 	display.fillCircle(x1, y1, 2, FG);
 
@@ -922,13 +903,13 @@ void OverrideGSR::draw12hourHands(uint8_t hour12) {
 	display.fillCircle(100+60*sin_a, 100-60*cos_a, 3, FG);
 
 	//tip
-	a1 = a - 0.034;
-	a2 = a + 0.034;
-	sincosf(a1, &sin_a1, &cos_a1);
-	sincosf(a2, &sin_a2, &cos_a2);
+	a1 = a - 2; //0.034:1.95
+	a2 = a + 2;
+	sincost(a1, &sin_a1, &cos_a1);
+	sincost(a2, &sin_a2, &cos_a2);
 	display.fillTriangle(100+58*sin_a1, 100-58*cos_a1,
 			100+58*sin_a2, 100-58*cos_a2,
-			100+74*sin_a, 100-74*cos_a, FG);
+			100+74*sin_a, 100-74*cos_a, FG);   
 }
 
 
@@ -937,13 +918,12 @@ void OverrideGSR::draw12hours() {
 	//getTextBounds allows perfect placement, regardless of font
 	uint16_t width, height;
 	int16_t x1, y1;
-	float a, sin_a, cos_a;
+	float sin_a, cos_a;
 	display.setFont(&Uechi_Gothic20pt7b);
 	for (int i = 1; i <= 12; ++i) {
 		display.getTextBounds(num[i], 0, 0, &x1, &y1, &width, &height);
-		a = radians(i*30);
-		sincosf(a, &sin_a, &cos_a);
-		display.setCursor(100+83*sin_a-width/2.0, 100-83*cos_a+height/2.0);
+		sincost(i*30, &sin_a, &cos_a);
+		display.setCursor(100+83*sin_a-(float)width/2, 100-83*cos_a+(float)height/2);
 		display.print(num[i]);
 	}
 }
@@ -953,13 +933,12 @@ void OverrideGSR::draw24hours() {
 	//Numbers & hour marks
 	int16_t x1, y1;
 	uint16_t width, height;
-	float a, sin_a, cos_a;
+	float sin_a, cos_a;
 	display.setFont(&leaguegothic_regular_webfont12pt7b);
 	for (int i = 0; i <= 23; ++i) {
 		display.getTextBounds(num[i], 0, 0, &x1, &y1, &width, &height);
-		a = radians(i*15);
-		sincosf(a, &sin_a, &cos_a);
-		display.setCursor(100+87*sin_a-width/2.0, 100-87*cos_a+height/2.0);
+		sincost(i*15, &sin_a, &cos_a);
+		display.setCursor(100+87*sin_a - (float)width/2, 100-87*cos_a + (float)height/2);
 		display.print(num[i]);
 		display.fillCircle(100+71*sin_a, 100-71*cos_a, 2, FG);
 	}
@@ -1000,8 +979,8 @@ void OverrideGSR::drawMinuteMarks() {
 	//Draw minute marks
 	int ii = 0;
 	for (int i = 0; i < 60; ++i) {
-		float a = radians(i*6), sin_a, cos_a;
-		sincosf(a, &sin_a, &cos_a);
+		float sin_a, cos_a;
+		sincost(i*6, &sin_a, &cos_a);
 		if (ii) {
 			//Small minute mark
 			display.drawLine(100+99*sin_a, 100-99*cos_a, 
@@ -1023,9 +1002,8 @@ void OverrideGSR::drawMinuteMarks() {
 
 //Show that an alarm will go off at the chosen minute:
 void OverrideGSR::drawAlarmMin(int8_t min) {
-	float a = radians(min*6);
 	float sin_a, cos_a;
-	sincosf(a, &sin_a, &cos_a);
+	sincost(min*6, &sin_a, &cos_a);
 	int16_t x = 100+99.5*sin_a;
 	int16_t y = 100-99.5*cos_a;
 	display.fillCircle(x, y, 6, FG);
