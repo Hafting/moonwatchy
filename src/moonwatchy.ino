@@ -231,13 +231,18 @@ void sincost(int a, float *const sin_a, float *const cos_a) {
 
 RTC_DATA_ATTR uint8_t subStyle; //Moonwatch has several pages (clock, calendar, etc)
 
+RTC_DATA_ATTR struct {
+	uint8_t rollday; //weekday of last shift
+	uint32_t days[7];
+} WeekSteps;
+
 class OverrideGSR : public WatchyGSR {
 	public:
 		//utf8_GFX * u8display = new utf8_GFX(&display); 
 		utf8_GFX *u8display;
  		OverrideGSR() : WatchyGSR() {};
 		String InsertNTPServer() { return "ntp.justervesenet.no"; }
-		void InsertDefaults() { AllowDefaultWatchStyles(false); };
+		void InsertDefaults() { AllowDefaultWatchStyles(false); Steps.Hour = 5; };
 		void InsertAddWatchStyles();
 		void InsertInitWatchStyle(uint8_t StyleID);
 		void InsertDrawWatchStyle(uint8_t StyleID);
@@ -463,36 +468,41 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 //Todays, yesterdays, and a graph for last week.
 void OverrideGSR::drawStepsPage() {
 			//Time+date
-			drawDate(170,25);
+			drawDate(175,25);
 			u8display->USEFONTSET(leaguegothic12pt);
-			display.setCursor(5, 30);
+			display.setCursor(35, 25);
 			u8display->print("Tid:");
 			display.setFont(&Uechi_Gothic20pt7b);
-			display.setCursor(45,31);
+			display.setCursor(70, 26);
 			display.print(WatchTime.Local.Hour);
 			display.print(":"); 
 			if (WatchTime.Local.Minute < 10) display.print("0");
 			display.print(WatchTime.Local.Minute);
+			display.writeFastHLine(0, 30, 150-0, FG);
+			display.writeFastVLine(150, 30, 91-30, FG);
 
 			//steps
-			display.setCursor(5,90);
+			display.setCursor(5,55);
 			u8display->print("Steg:");
-			display.setCursor(5,120);
+			display.setCursor(5,85);
 			u8display->print("I går:");
+			display.writeFastHLine(0, 91, 200, FG);
 
 			display.setFont(&FreeSansBold15pt7b); //numeric only
-			display.setCursor(45, 92);
+			display.setCursor(45, 57);
 			drawSteps(SBMA.getCounter());
-			display.setCursor(45,122);
-			drawSteps(Steps.Yesterday);
+			display.setCursor(45,87);
+			drawSteps(Steps.Yesterday+12345);//!!!
 
 			//battery
-			display.setCursor(5, 160);
+			display.writeFastHLine(0, 177, 199, FG);
+			display.setCursor(5, 199);
 			u8display->print("Batteri: ");
 			float battvolt = getBatteryVoltage();
 			float const battmax = 4.26;
 			u8display->print(battvolt); //max is 4.26? Can calc. a percentage
-			//goes down to 3.15V, -63%. Cannot trust Battery.MinLevel possibly lower
+			//goes down to 3.14V, -63%.
+			//Still, use Battery.MinLevel, as going lower is bad for the battery.
 			u8display->print("V   ");
 			u8display->print((int) ((battvolt-Battery.MinLevel)/(battmax-Battery.MinLevel)*100));
 			u8display->print("% ");
