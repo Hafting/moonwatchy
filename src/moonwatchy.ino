@@ -264,6 +264,7 @@ class OverrideGSR : public WatchyGSR {
 		void drawSteps(uint32_t steps);
 		void drawClockSteps(uint32_t steps);
 		void drawStepsPage();
+		void handleReboot();
 };
 
 /*
@@ -359,6 +360,12 @@ class OverrideGSR : public WatchyGSR {
     };
 
 
+/*
+Detect reboots, by testing this flag.  Then, zero it after 
+handling the fresh start (i.e. after loading stuff from flash)
+	 */
+RTC_DATA_ATTR uint8_t rebooted = 1;
+
 void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	//StyleID
 	//0: 12 hour hands
@@ -379,6 +386,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 		7 display step counter, battery status, whatever other tech info that fits
 
 	*/
+	if (rebooted) handleReboot();
 	switch (subStyle) {
 		case 0: //12 or 24 hour analog watch
 			if (StyleID) {
@@ -464,6 +472,35 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 };
 
 
+/*
+1. Store stepcounts for a week in NVS, in order to draw a graph.
+   NVS is a "filesystem" and survives reboot/poweroff/reprogramming
+	 Keep the same stuff in RTC_DATA_ATTR, reload from NVS when 
+	 data has been zeroed by a reflash/reboot
+	 When the time comes for resetting the stepcounter, the
+	 day's final count is stored into NVS.
+
+	 Detecting a reboot: also have a RTC_DATA_ATTR inverted checksum.
+
+2. current stepcount is also lost, when reprogramming.
+   Not good, for the programming hobbyist!
+	 a. save stepcount+date(day+month) to flash, when pressing up+down
+	    And day+month must be adjusted for the fact that the step 
+			reset time is not at midnight.
+	 b. when reboot is detected, fetch stepcount from flash.
+	    if it is still the same day, keep the loaded count as an
+			offset that is added to all presentations of stepcount.
+      SBMA.getCounter() replaced with getRealCounter() that 
+			adds in this offset.
+
+   
+	 */
+
+void OverrideGSR::handleReboot() {
+
+	rebooted = 0; 
+}
+
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
 void OverrideGSR::drawStepsPage() {
@@ -488,11 +525,17 @@ void OverrideGSR::drawStepsPage() {
 			u8display->print("I går:");
 			display.writeFastHLine(0, 91, 200, FG);
 
+
+
+
+
+
+			
 			display.setFont(&FreeSansBold15pt7b); //numeric only
 			display.setCursor(45, 57);
 			drawSteps(SBMA.getCounter());
 			display.setCursor(45,87);
-			drawSteps(Steps.Yesterday+12345);//!!!
+			drawSteps(Steps.Yesterday);
 
 			//battery
 			display.writeFastHLine(0, 177, 199, FG);
