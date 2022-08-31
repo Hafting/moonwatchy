@@ -91,7 +91,7 @@ int const monthdays[] = {31,28,31,30,31,30,31,31,30,31,30,31};
 int const monthshift[] = {0,3,3,6,1,4,6,2,5,0,3,5};
 
 //Sine table for avoiding calls to sincosf()
-//sines for 0, 1, 2, ..., 89, 90 degrees
+//sines for 0, 1, 2, ..., 89, 90 degrees. Generated programmatically.
 float const sine[] = {
 	0.0000000,	// 0
 	0.0174524,	// 1
@@ -258,6 +258,7 @@ class OverrideGSR : public WatchyGSR {
 		void drawOwner();
 		void drawSteps(uint32_t steps);
 		void drawClockSteps(uint32_t steps);
+		void drawStepsPage();
 };
 
 /*
@@ -451,6 +452,16 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 			subStyle = 7;
 			//fall through deliberately
 		case 7: //Various sensor info: steps, battery. Also shows time
+			drawStepsPage();
+	}
+
+		delete u8display; //could be more persistent?			
+};
+
+
+//Page where the steps are important,
+//Todays, yesterdays, and a graph for last week.
+void OverrideGSR::drawStepsPage() {
 			//Time+date
 			drawDate(170,25);
 			u8display->USEFONTSET(leaguegothic12pt);
@@ -481,15 +492,12 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 			float battvolt = getBatteryVoltage();
 			float const battmax = 4.26;
 			u8display->print(battvolt); //max is 4.26? Can calc. a percentage
+			//goes down to 3.15V, -63%. Cannot trust Battery.MinLevel possibly lower
 			u8display->print("V   ");
 			u8display->print((int) ((battvolt-Battery.MinLevel)/(battmax-Battery.MinLevel)*100));
 			u8display->print("% ");
 			u8display->print(Battery.Direction == 1 ? "☝" : "☟"); //Charging indicator
-
-	}
-
-		delete u8display; //could be more persistent?			
-};
+}
 
 //Draws a number, assumed to be steps. Assumes fonts & position are set up
 //Adds smiles if over 10.000 or 100.000
