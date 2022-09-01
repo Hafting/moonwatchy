@@ -1137,18 +1137,19 @@ void OverrideGSR::drawDate(int16_t x, float y) {
 bool OverrideGSR::InsertHandlePressed(uint8_t SwitchNumber, bool &Haptic, bool &Refresh) {
 	switch (SwitchNumber){
 		case 2: //Back
-			Haptic = true;  // Cause Hptic feedback if set to true.
+			Haptic = true;  // Cause Haptic feedback if set to true.
 			Refresh = true; // Cause the screen to be refreshed (redrwawn).
 			return true;  // Respond with "I used a button", so the WatchyGSR knows you actually did something with a button.
 			break;
 		case 3: //Up, next watch face
 			subStyle = (subStyle + 1) & 7;
-			showWatchFace();
+			Refresh = true;
+			//Haptic = true;
 			return true;
 			break;
 		case 4: //Down, previous watch face
 			subStyle = (subStyle - 1) & 7;
-			showWatchFace();
+			Refresh = true;
 			return true;
 	}
 	return false;
