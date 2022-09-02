@@ -236,6 +236,11 @@ RTC_DATA_ATTR struct {
 	uint32_t days[7];
 } WeekSteps;
 
+RTC_DATA_ATTR uint32_t step0459=0; //!!! For testing
+RTC_DATA_ATTR uint32_t step0500=0;
+RTC_DATA_ATTR uint32_t step0501=0;
+
+
 class OverrideGSR : public WatchyGSR {
 	public:
 		//utf8_GFX * u8display = new utf8_GFX(&display); 
@@ -359,6 +364,18 @@ class OverrideGSR : public WatchyGSR {
       }
     };
 
+//!!!testing, to be removed
+void stepcheck() {
+	if (WatchTime.Local.Hour == Steps.Hour) {
+		if (WatchTime.Local.Minute == Steps.Minutes) {
+			step0500 = SBMA.getCounter();
+		} else if (WatchTime.Local.Minute == Steps.Minutes+1) {
+			step0501 = SBMA.getCounter();
+		}
+	} else if (WatchTime.Local.Hour == Steps.Hour-1 && WatchTime.Local.Minute==59) {
+		step0459 = SBMA.getCounter();
+	}
+}
 
 /*
 Detect reboots, by testing this flag.  Then, zero it after 
@@ -373,6 +390,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	if (!SafeToDraw()) return;
 
 	u8display = new utf8_GFX(&display); //For utf-8 printing
+	stepcheck(); //!!! testing
   /*
 		Substyles:
 		0 main watch face (12 or 24 hour, with hands) moon phase
@@ -497,7 +515,8 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	 */
 
 void OverrideGSR::handleReboot() {
-
+	//Handle the reboot, by re-fetching stuff from NVS (flash)
+	//!!! not done yet
 	rebooted = 0; 
 }
 
@@ -526,6 +545,13 @@ void OverrideGSR::drawStepsPage() {
 			display.writeFastHLine(0, 91, 200, FG);
 
 
+			//!!!test
+			display.setCursor(5,115);
+			u8display->print(step0459);
+			u8display->print(":");
+			u8display->print(step0500);
+			u8display->print(":");
+			u8display->print(step0501);
 
 
 
