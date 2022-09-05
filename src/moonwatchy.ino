@@ -231,11 +231,6 @@ void sincost(int a, float *const sin_a, float *const cos_a) {
 
 RTC_DATA_ATTR uint8_t subStyle; //Moonwatch has several pages (clock, calendar, etc)
 
-RTC_DATA_ATTR struct {
-	uint8_t rollday; //weekday of last shift
-	uint32_t days[7];
-} WeekSteps;
-
 RTC_DATA_ATTR uint32_t step0459=0; //!!! For testing
 RTC_DATA_ATTR uint32_t step0500=0;
 RTC_DATA_ATTR uint32_t step0501=0;
@@ -364,18 +359,29 @@ class OverrideGSR : public WatchyGSR {
       }
     };
 
-//!!!testing, to be removed
+RTC_DATA_ATTR struct {
+	uint8_t lastUpdate; //weekday of last shift. To avoid double updates.
+	uint32_t daysteps[7]; //[0] is steps for last sunday, [1] last monday...
+} WeekSteps;
+
+//If we are at reset time for the stepcounter,
+//also update the week log. Also store the newly completed day in NVS
 void stepcheck() {
-	if (WatchTime.Local.Hour == Steps.Hour) {
-		if (WatchTime.Local.Minute == Steps.Minutes) {
-			step0500 = SBMA.getCounter();
-		} else if (WatchTime.Local.Minute == Steps.Minutes+1) {
-			step0501 = SBMA.getCounter();
+	if (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute == Steps.Minutes) {
+		//The stepcounter was reset, and accumulated steps are in Steps.Yesterday
+		//Find daynumber for yesterday
+		uint8_t yesterday = (WatchTime.Local.Wday + 7 - 1) % 7;
+		//Further check to see if the work is done already:
+		if (WeekSteps.lastUpdate != yesterday) {
+			WeekSteps.daysteps[yesterday] = Steps.Yesterday;
+			WeekSteps.lastUpdate = yesterday;
+			//Also store this count to NVS, in order to survive frequent fw updates:
+			//!!!NVS NOT DONE
 		}
-	} else if (WatchTime.Local.Hour == Steps.Hour-1 && WatchTime.Local.Minute==59) {
-		step0459 = SBMA.getCounter();
-	}
+				
+  }
 }
+
 
 /*
 Detect reboots, by testing this flag.  Then, zero it after 
@@ -390,7 +396,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	if (!SafeToDraw()) return;
 
 	u8display = new utf8_GFX(&display); //For utf-8 printing
-	stepcheck(); //!!! testing
+	stepcheck(); 
   /*
 		Substyles:
 		0 main watch face (12 or 24 hour, with hands) moon phase
