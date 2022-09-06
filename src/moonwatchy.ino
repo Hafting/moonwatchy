@@ -238,10 +238,6 @@ void sincost(int a, float *const sin_a, float *const cos_a) {
 
 RTC_DATA_ATTR uint8_t subStyle; //Moonwatch has several pages (clock, calendar, etc)
 
-RTC_DATA_ATTR uint32_t step0459=0; //!!! For testing
-RTC_DATA_ATTR uint32_t step0500=0;
-RTC_DATA_ATTR uint32_t step0501=0;
-
 
 class OverrideGSR : public WatchyGSR {
 	public:
@@ -580,6 +576,7 @@ void OverrideGSR::handleReboot() {
 
 	rebooted = 0; 
 }
+
 
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
