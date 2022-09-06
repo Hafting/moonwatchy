@@ -40,6 +40,13 @@
 //Macro simplifying the use of fontsets
 #define USEFONTSET(f) setFontSet((f), sizeof(f)/sizeof(const GFXfont *))
 
+//NVS key for saving the current stepcounter
+#define MW_DCNT "MW-DCNT"
+//NVS keys for saving weekday stepcounts
+char const * const mwdaystep[7] = {"MW-D0", "MW-D1", "MW-D2", "MW-D3", "MW-D4", "MW-D5", "MW-D6"};
+
+
+
 //Expose Watchy_GSR stuff that is needed:
 extern RTC_DATA_ATTR     uint8_t   Alarms_Hour[4];
 extern RTC_DATA_ATTR     uint8_t   Alarms_Minutes[4];
@@ -265,6 +272,9 @@ class OverrideGSR : public WatchyGSR {
 		void drawClockSteps(uint32_t steps);
 		void drawStepsPage();
 		void handleReboot();
+		void saveStepcounter();
+		void msgBox(char const * const s);
+		uint32_t getCounter();
 };
 
 /*
@@ -360,8 +370,9 @@ class OverrideGSR : public WatchyGSR {
     };
 
 RTC_DATA_ATTR struct {
-	uint8_t lastUpdate; //weekday of last shift. To avoid double updates.
 	uint32_t daysteps[7]; //[0] is steps for last sunday, [1] last monday...
+	uint32_t stepOffset; //Offset for the stepcounter, from NVS
+	uint8_t lastUpdate; //weekday of last shift. To avoid double updates.
 } WeekSteps;
 
 //If we are at reset time for the stepcounter,
@@ -382,6 +393,13 @@ void stepcheck() {
   }
 }
 
+
+/*
+	Reads the step counter, and adds in the offset from NVS
+	 */
+uint32_t OverrideGSR::getCounter() {
+	return SBMA.getCounter() + WeekSteps.stepOffset;
+}
 
 /*
 Detect reboots, by testing this flag.  Then, zero it after 
@@ -462,7 +480,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 				else drawDate(46, 99.5);
 
 			}
-			drawClockSteps(SBMA.getCounter());
+			drawClockSteps(getCounter());
 			break;
 		case 1: //Calendar for this month
 			drawCalendar(WatchTime.Local.Month, WatchTime.Local.Year + 1900);
@@ -514,7 +532,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	 b. when reboot is detected, fetch stepcount from flash.
 	    if it is still the same day, keep the loaded count as an
 			offset that is added to all presentations of stepcount.
-      SBMA.getCounter() replaced with getRealCounter() that 
+      SBMA.getCounter() replaced with getCounter() that 
 			adds in this offset.
 
    
@@ -522,7 +540,25 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 
 void OverrideGSR::handleReboot() {
 	//Handle the reboot, by re-fetching stuff from NVS (flash)
-	//!!! not done yet
+
+	//Saved daily stepcount, if any:
+	uint64_t datedcnt = NVS.getInt(MW_DCNT); //0 on failure
+	uint8_t storedMonth = datedcnt >> 40;
+	uint8_t storedDay = (datedcnt >> 32) & 255;
+	if (datedcnt) if (storedDay == WatchTime.Local.Day && storedMonth == WatchTime.Local.Month) {
+		//Valid stepcount found
+		WeekSteps.stepOffset = datedcnt & 0xFFFF;
+		msgBox("Innlest skritteller!"); //!!!  testing only!
+	} else {
+		//Erase the outdated stepcount from flash, so it won't reappear next year
+		NVS.erase(MW_DCNT);
+		WeekSteps.stepOffset = 0;
+	} else WeekSteps.stepOffset = 0;
+
+
+	//Saved weekday stepcounts, if any:
+
+
 	rebooted = 0; 
 }
 
@@ -553,11 +589,8 @@ void OverrideGSR::drawStepsPage() {
 
 			//!!!test
 			display.setCursor(5,115);
-			u8display->print(step0459);
-			u8display->print(":");
-			u8display->print(step0500);
-			u8display->print(":");
-			u8display->print(step0501);
+			u8display->print("offset:");
+			u8display->print(WeekSteps.stepOffset);
 
 
 
@@ -565,7 +598,7 @@ void OverrideGSR::drawStepsPage() {
 			
 			display.setFont(&FreeSansBold15pt7b); //numeric only
 			display.setCursor(45, 57);
-			drawSteps(SBMA.getCounter());
+			drawSteps(getCounter());
 			display.setCursor(45,87);
 			drawSteps(Steps.Yesterday);
 
@@ -1166,20 +1199,68 @@ void OverrideGSR::drawDate(int16_t x, float y) {
 }
 
 
+/* Maxes a box and displays an utf8-string at least 1s */
+void OverrideGSR::msgBox(char const * const s) {
+	uint16_t width, height;
+	int16_t x1, y1, x, y;
+	u8display->USEFONTSET(leaguegothic12pt);
+	u8display->getTextBounds(s, 0, 0, &x1, &y1, &width, &height);
+	x = 100 - width/2;
+	y = 100 - height/2;
+	display.fillRect(x-2, y-2, width+4, height+4, BG);
+	display.drawRect(x-3, y-3, width+6, height+6, FG);
+	display.setCursor(x-x1, y-y1);
+	u8display->setTextColor(FG);
+	u8display->print(s);
+  delay(1000);
+}
+
+/*
+	 Saves the stepcounter to NVS, so it may be restored after reboot/reflash
+	 Need to save the current count AND date, so we don't restore on a later date.
+	 B=NVS.getString(GTZ,S);
+	 B = NVS.setString(GTZ,NewTZ);
+
+GTZ: "GSR-TZ", identifier string
+extern ArduinoNvs NVS;
+setInt(String key, int8/16/32/64);
+
+dato+stepcount går inn i en enkelt uint64_t
+	 */
+void OverrideGSR::saveStepcounter() {
+	uint64_t datedcnt = getCounter() | ((uint64_t)WatchTime.Local.Day << 32) | ((uint64_t)WatchTime.Local.Month << 40);
+	NVS.setInt(MW_DCNT, datedcnt);
+  msgBox("Lagret skritteller");
+}
+/*
+  Overrides:  
+	             UP - next watch screen
+						 DOWN - previous watch screen
+             BACK - silence alarm (not done yet!!!)
+
+	Special sequence:
+	   From main watch face: DOWN UP BACK in the same minute. 
+		 Trigger saving of steps into NVS, in preparation for a reflash.
+	 */
 bool OverrideGSR::InsertHandlePressed(uint8_t SwitchNumber, bool &Haptic, bool &Refresh) {
+	static uint8_t special;
 	switch (SwitchNumber){
 		case 2: //Back
 			Haptic = true;  // Cause Haptic feedback if set to true.
-			Refresh = true; // Cause the screen to be refreshed (redrwawn).
+			Refresh = true; // Cause the screen to be refreshed (redrawn).
+			if (special == 2) saveStepcounter();
+			special = 0;
 			return true;  // Respond with "I used a button", so the WatchyGSR knows you actually did something with a button.
 			break;
 		case 3: //Up, next watch face
 			subStyle = (subStyle + 1) & 7;
 			Refresh = true;
+			special = (special == 1) ? 2 : 0; //special seq. step 2
 			//Haptic = true;
 			return true;
 			break;
 		case 4: //Down, previous watch face
+			special = !subStyle ? 1 : 0; //special seq. step 1
 			subStyle = (subStyle - 1) & 7;
 			Refresh = true;
 			return true;
