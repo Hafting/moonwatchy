@@ -604,14 +604,31 @@ void OverrideGSR::drawStepsPage() {
 
 
 			//!!!test
-			display.setCursor(5,115);
+			display.setCursor(65,115);
 			u8display->print("offset:");
 			u8display->print(WeekSteps.stepOffset);
 
+			//Draw a graph with steps and days
+			//Day names under the x axis, and a notch per day
+			//7 days history, plus today. So 8 days.
+			//8 days + y axis legend, 9 positions. 200 pixels. pos*200/9+100/9
+			//scaled y axis, roughly "from 0 to max"
+			//Room for a legend with 2 numbers, such as 4k, 8k.
+			//Draw graph heavier than the axes, it could overlap with the X axis
 
+			//The step counter does not reset at midnight, but a more convenient time
+			//So the dayname lags between midnight and stepcounter reset time.
 
+			//underline at  y=177
+			//overline at y=91
 
+			uint8_t day = WatchTime.Local.Wday;
+			if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) day = (day + 7 - 1) % 7;
 			
+
+
+			//!!!
+
 			display.setFont(&FreeSansBold15pt7b); //numeric only
 			display.setCursor(45, 57);
 			drawSteps(getCounter());
