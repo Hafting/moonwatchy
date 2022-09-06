@@ -275,6 +275,7 @@ class OverrideGSR : public WatchyGSR {
 		void saveStepcounter();
 		void msgBox(char const * const s);
 		uint32_t getCounter();
+		void stepCheck();
 };
 
 /*
@@ -377,7 +378,7 @@ RTC_DATA_ATTR struct {
 
 //If we are at reset time for the stepcounter,
 //also update the week log. Also store the newly completed day in NVS
-void stepcheck() {
+void OverrideGSR::stepCheck() {
 	if (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute == Steps.Minutes) {
 		//The stepcounter was reset, and accumulated steps are in Steps.Yesterday
 		//Find daynumber for yesterday
@@ -386,8 +387,15 @@ void stepcheck() {
 		if (WeekSteps.lastUpdate != yesterday) {
 			WeekSteps.daysteps[yesterday] = Steps.Yesterday;
 			WeekSteps.lastUpdate = yesterday;
+
+			//Erase any explicitly saved stepcount, and zero the offset.
+			if (WeekSteps.stepOffset) {
+				WeekSteps.stepOffset = 0;
+				NVS.erase(MW_DCNT);
+			}
+
 			//Also store this count to NVS, in order to survive frequent fw updates:
-			//!!!NVS NOT DONE
+			NVS.setInt(mwdaystep[yesterday], Steps.Yesterday);
 		}
 				
   }
@@ -414,7 +422,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	if (!SafeToDraw()) return;
 
 	u8display = new utf8_GFX(&display); //For utf-8 printing
-	stepcheck(); 
+	stepCheck(); 
   /*
 		Substyles:
 		0 main watch face (12 or 24 hour, with hands) moon phase
@@ -548,7 +556,6 @@ void OverrideGSR::handleReboot() {
 	if (datedcnt) if (storedDay == WatchTime.Local.Day && storedMonth == WatchTime.Local.Month) {
 		//Valid stepcount found
 		WeekSteps.stepOffset = datedcnt & 0xFFFF;
-		msgBox("Innlest skritteller!"); //!!!  testing only!
 	} else {
 		//Erase the outdated stepcount from flash, so it won't reappear next year
 		NVS.erase(MW_DCNT);
@@ -557,7 +564,19 @@ void OverrideGSR::handleReboot() {
 
 
 	//Saved weekday stepcounts, if any:
+	for (int i=0; i<7; ++i) {
+		//No special case for "not found", as "not found" yields a zero int.
+		WeekSteps.daysteps[i] = NVS.getInt(mwdaystep[i]);
+	}
 
+	//Also update Steps.Yesterday
+	//The stepcounter is not reset at midnight, but at a more convenient time.
+	//So "yesterday" is usually Wday-1, but could be Wday-2 when the day is new 
+	//but the stepcounter is not yet reset.
+	int16_t minusdays = 1;
+	if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) minusdays = 2;
+	int16_t yesterday = (WatchTime.Local.Wday + 7 - minusdays) % 7;
+	Steps.Yesterday = WeekSteps.daysteps[yesterday];
 
 	rebooted = 0; 
 }
@@ -1212,7 +1231,6 @@ void OverrideGSR::msgBox(char const * const s) {
 	display.setCursor(x-x1, y-y1);
 	u8display->setTextColor(FG);
 	u8display->print(s);
-  delay(1000);
 }
 
 /*
