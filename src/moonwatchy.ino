@@ -272,6 +272,7 @@ class OverrideGSR : public WatchyGSR {
 		void msgBox(char const * const s);
 		uint32_t getCounter();
 		void stepCheck();
+		void printleft(int16_t x, int16_t y, char const * const s);
 };
 
 /*
@@ -579,76 +580,157 @@ void OverrideGSR::handleReboot() {
 }
 
 
+/*
+  Convert numbers < 100 to string.
+	s[2] is supposed to be \0
+	 */
+void num2str(uint16_t n, char s[3]) {
+	if (n >= 100) {
+		s[0]=s[1]='X';
+		return;
+	}
+	if (n >= 10) {
+		s[1] = n % 10 + '0';
+		s[0] = n / 10 + '0';
+	} else {
+		s[0] = n + '0';
+		s[1] = 0;
+	}
+}
+
+
+/*
+  Prints a string left justified at the position.
+  Uses whatever font that is active for u8display
+*/
+void OverrideGSR::printleft(int16_t x, int16_t y, char const * const s) {
+	int16_t x1, y1;
+	uint16_t w, h;
+	u8display->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+	display.setCursor(x-w, y);
+	u8display->print(s);
+}
+
+
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
 void OverrideGSR::drawStepsPage() {
-			//Time+date
-			drawDate(175,25);
-			u8display->USEFONTSET(leaguegothic12pt);
-			display.setCursor(35, 25);
-			u8display->print("Tid:");
-			display.setFont(&Uechi_Gothic20pt7b);
-			display.setCursor(70, 26);
-			display.print(WatchTime.Local.Hour);
-			display.print(":"); 
-			if (WatchTime.Local.Minute < 10) display.print("0");
-			display.print(WatchTime.Local.Minute);
-			display.writeFastHLine(0, 30, 150-0, FG);
-			display.writeFastVLine(150, 30, 91-30, FG);
+	//Time+date
+	drawDate(175,25);
+	u8display->USEFONTSET(leaguegothic12pt);
+	display.setCursor(35, 25);
+	u8display->print("Tid:");
+	display.setFont(&Uechi_Gothic20pt7b);
+	display.setCursor(70, 26);
+	display.print(WatchTime.Local.Hour);
+	display.print(":"); 
+	if (WatchTime.Local.Minute < 10) display.print("0");
+	display.print(WatchTime.Local.Minute);
+	display.writeFastHLine(0, 30, 150-0, FG);
+	display.writeFastVLine(150, 30, 91-30, FG);
 
-			//steps
-			display.setCursor(5,55);
-			u8display->print("Steg:");
-			display.setCursor(5,85);
-			u8display->print("I går:");
-			display.writeFastHLine(0, 91, 200, FG);
-
-
-			//!!!test
-			display.setCursor(65,115);
-			u8display->print("offset:");
-			u8display->print(WeekSteps.stepOffset);
-
-			//Draw a graph with steps and days
-			//Day names under the x axis, and a notch per day
-			//7 days history, plus today. So 8 days.
-			//8 days + y axis legend, 9 positions. 200 pixels. pos*200/9+100/9
-			//scaled y axis, roughly "from 0 to max"
-			//Room for a legend with 2 numbers, such as 4k, 8k.
-			//Draw graph heavier than the axes, it could overlap with the X axis
-
-			//The step counter does not reset at midnight, but a more convenient time
-			//So the dayname lags between midnight and stepcounter reset time.
-
-			//underline at  y=177
-			//overline at y=91
-
-			uint8_t day = WatchTime.Local.Wday;
-			if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) day = (day + 7 - 1) % 7;
-			
+	//steps
+	display.setCursor(5,55);
+	u8display->print("Steg:");
+	display.setCursor(5,85);
+	u8display->print("I går:");
+	display.writeFastHLine(0, 91, 200, FG);
 
 
-			//!!!
+	//Draw a graph with steps and days
+	//Day names under the x axis, and a notch per day
+	//7 days history, plus today. So 8 days.
+	//8 days + y axis legend, 9 positions. 200 pixels. pos*200/9+100/9
+	//200/9:22  100/9:11
+	//scaled y axis, roughly "from 0 to max"
+	//Room for a legend with 2 numbers, such as 4k, 8k.
+	//Draw graph heavier than the axes, it could overlap with the X axis
 
-			display.setFont(&FreeSansBold15pt7b); //numeric only
-			display.setCursor(45, 57);
-			drawSteps(getCounter());
-			display.setCursor(45,87);
-			drawSteps(Steps.Yesterday);
+	//Find the maximum, for scaling
+	uint32_t maxStep = max(getCounter(), (uint32_t)3000); // < 3000 won't work
+	for (int i = 0; i < 7; ++i) maxStep = max(WeekSteps.daysteps[i],  maxStep); 
 
-			//battery
-			display.writeFastHLine(0, 177, 199, FG);
-			display.setCursor(5, 199);
-			u8display->print("Batteri: ");
-			float battvolt = getBatteryVoltage();
-			float const battmax = 4.26;
-			u8display->print(battvolt); //max is 4.26? Can calc. a percentage
-			//goes down to 3.14V, -63%.
-			//Still, use Battery.MinLevel, as going lower is bad for the battery.
-			u8display->print("V   ");
-			u8display->print((int) ((battvolt-Battery.MinLevel)/(battmax-Battery.MinLevel)*100));
-			u8display->print("% ");
-			u8display->print(Battery.Direction == 1 ? "☝" : "☟"); //Charging indicator
+	//Rounding. Max divisible by 3000
+	maxStep = ((maxStep + 2999) / 3000) * 3000;
+
+	//underline at  y=177
+	//overline at y=91
+
+
+	//The step counter does not reset at midnight, but a more convenient time
+	//So the dayname lags between midnight and stepcounter reset time.
+	uint8_t day = WatchTime.Local.Wday;
+	if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) day = (day + 7 - 1) % 7;
+
+	//Axes
+	const int xaxis = 155;
+	const int xend = 200-3;
+	const int yaxis = 22;
+	const int yend = xaxis-60;
+	const int arrl = 3; //Arrow length
+	display.writeFastHLine(6, xaxis, xend-6, FG);
+	display.writeFastVLine(yaxis, xaxis+1, yend-xaxis-1, FG);
+	//Arrows on axes
+	display.fillTriangle(xend, xaxis, xend-arrl, xaxis-arrl, xend-arrl, xaxis+arrl, FG);
+	display.fillTriangle(yaxis, yend, yaxis+arrl, yend+arrl, yaxis-arrl, yend+arrl, FG);
+
+	//day names under x axis, notches, and the graph.
+	int16_t prev_y = -1;
+	for (int i = 0; i <= 7; ++i) {
+		int16_t x1, y1;
+		uint16_t width, height;
+		char const * const dayname = dayname2[(day + i + 7 - 1) % 7];
+		u8display->getTextBounds(dayname, 0, 0, &x1, &y1, &width, &height);
+		x1 = 33 + 22*i;
+		display.setCursor(x1 - width/2, 175);
+		u8display->print(dayname);
+		display.fillTriangle(x1, xaxis-2, x1-1, xaxis-1, x1+1, xaxis-1, FG);
+		int16_t y = xaxis - 60*((i<7) ? WeekSteps.daysteps[(day+i) % 7] : getCounter())/maxStep;
+		if (prev_y > -1) {
+			//Fatter line by tripling
+			display.drawLine(x1-22, prev_y-1, x1, y-1, FG);
+			display.drawLine(x1-22, prev_y, x1, y, FG);
+			display.drawLine(x1-22, prev_y+1, x1, y+1, FG);
+		}
+		prev_y = y;	
+	}
+
+	//Numbers at y axis
+	char s[3] = {0,0,0};
+	display.setCursor(0, xaxis-10);
+	num2str(maxStep/3000, s);
+	printleft(yaxis-5, xaxis-10, s);
+	num2str(2*maxStep/3000, s);
+	printleft(yaxis-5, xaxis-10-20, s);
+	display.setCursor(yaxis+7, xaxis-45);
+	u8display->print("k");
+	//Bumps/notches
+	display.fillTriangle(yaxis-2, xaxis-20, yaxis-1, xaxis-21, yaxis-1, xaxis-19, FG);
+	display.fillTriangle(yaxis-2, xaxis-40, yaxis-1, xaxis-41, yaxis-1, xaxis-39, FG);
+	//
+	if (maxStep <= 30000) for (int y = 1000; y<maxStep; y += 1000) {
+		display.writeFastHLine(yaxis+1, xaxis - (float)y/maxStep * 60, 2, FG);
+	}
+
+	display.setFont(&FreeSansBold15pt7b); //numeric only
+	display.setCursor(45, 57);
+	drawSteps(getCounter());
+	display.setCursor(45,87);
+	drawSteps(Steps.Yesterday);
+
+	//battery
+	display.writeFastHLine(0, 178, 199, FG);
+	display.setCursor(5, 199);
+	u8display->print("Batteri: ");
+	float battvolt = getBatteryVoltage();
+	float const battmax = 4.26;
+	u8display->print(battvolt); //max is 4.26? Can calc. a percentage
+															//goes down to 3.14V, -63%.
+															//Still, use Battery.MinLevel, as going lower is bad for the battery.
+	u8display->print("V   ");
+	u8display->print((int) ((battvolt-Battery.MinLevel)/(battmax-Battery.MinLevel)*100));
+	u8display->print("% ");
+	u8display->print(Battery.Direction == 1 ? "☝" : "☟"); //Charging indicator
 }
 
 //Draws a number, assumed to be steps. Assumes fonts & position are set up
@@ -1264,6 +1346,7 @@ void OverrideGSR::saveStepcounter() {
 	uint64_t datedcnt = getCounter() | ((uint64_t)WatchTime.Local.Day << 32) | ((uint64_t)WatchTime.Local.Month << 40);
 	NVS.setInt(MW_DCNT, datedcnt);
   msgBox("Lagret skritteller");
+	//BUG: watchy resets itself at this point. Why? Not much of a problem, but still...
 }
 /*
   Overrides:  
