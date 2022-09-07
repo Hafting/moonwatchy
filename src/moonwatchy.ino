@@ -381,10 +381,11 @@ void OverrideGSR::stepCheck() {
 		uint8_t yesterday = (WatchTime.Local.Wday + 7 - 1) % 7;
 		//Further check to see if the work is done already:
 		if (WeekSteps.lastUpdate != yesterday) {
+			Steps.Yesterday += WeekSteps.stepOffset; //Correct GSR if need be.
 			WeekSteps.daysteps[yesterday] = Steps.Yesterday;
 			WeekSteps.lastUpdate = yesterday;
 
-			//Erase any explicitly saved stepcount, and zero the offset.
+			//Erase any explicitly saved stepcount, and zero the offset. Correct "Yesterday"
 			if (WeekSteps.stepOffset) {
 				WeekSteps.stepOffset = 0;
 				NVS.erase(MW_DCNT);
