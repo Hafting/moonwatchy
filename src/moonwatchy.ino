@@ -687,8 +687,9 @@ void OverrideGSR::drawStepsPage() {
 		display.fillTriangle(x1, xaxis-2, x1-1, xaxis-1, x1+1, xaxis-1, FG);
 		int16_t y = xaxis - 60*((i<7) ? WeekSteps.daysteps[(day+i) % 7] : getCounter())/maxStep;
 		if (prev_y > -1) {
-			//Fatter line by tripling
-			display.drawLine(x1-22, prev_y-1, x1, y-1, FG);
+			//Fatter line by triple drawing. 
+			//once with y offset, once with x offset. In total, always thickness 2.
+			display.drawLine(x1-21, prev_y, x1+1, y, FG);
 			display.drawLine(x1-22, prev_y, x1, y, FG);
 			display.drawLine(x1-22, prev_y+1, x1, y+1, FG);
 		}
