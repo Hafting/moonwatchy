@@ -23,7 +23,7 @@
 #include "FreeSerif8pt8.h"     //Moon phase symbols, extra small
 #include "FreeSerif12pt8.h"    //Other useful symbols. Zodiac, planets, weather,...
 
-//Number font for dates
+//Number font, large clear numerals
 #include "FreeSansBold15num.h"
 
 //Colors
@@ -77,6 +77,10 @@ const GFXfont *Engine5pt[2] = {&Engine5pt7b, &Engine5pt8b};
 //Text: leaguegothic, because it is a narrow font covering ascii & latin extensions
 //Symbols taken from FreeSerif, because it has just about anything 
 const GFXfont *leaguegothic12pt[4] = {&leaguegothic_regular_webfont12pt7b, &leaguegothic_regular_webfont12pt8b, &FreeSerif8pt8b, &FreeSerif12pt8b};
+
+//Large numerals
+//Does not need utf8 functionality, but printleft() uses utf8 printing, so...
+const GFXfont *freesansbold15pt[1] = {&FreeSansBold15pt7b};
 
 //Various texts, using utf8
 char const * const monthname[12] = {"JAN", "FEB", "MAR", "APR", "MAI", "JUN", "JUL", "AUG", "SEP", "OKT", "NOV", "DES"};
@@ -630,12 +634,18 @@ void OverrideGSR::drawStepsPage() {
 	display.writeFastVLine(150, 30, 91-30, FG);
 
 	//steps
-	display.setCursor(5,55);
-	u8display->print("Steg:");
-	display.setCursor(5,85);
-	u8display->print("I går:");
+	printleft(32, 54, "Steg:");
+	printleft(32, 84, "I går:");
 	display.writeFastHLine(0, 91, 200, FG);
 
+	u8display->USEFONTSET(freesansbold15pt);
+	display.setFont(&FreeSansBold15pt7b); //numeric only
+	display.setCursor(45, 56);
+	drawSteps(getCounter());
+	display.setCursor(45,86);
+	drawSteps(Steps.Yesterday);
+
+	u8display->USEFONTSET(leaguegothic12pt); //Back to the usual font
 
 	//Draw a graph with steps and days
 	//Day names under the x axis, and a notch per day
@@ -673,6 +683,15 @@ void OverrideGSR::drawStepsPage() {
 	//Arrows on axes
 	display.fillTriangle(xend, xaxis, xend-arrl, xaxis-arrl, xend-arrl, xaxis+arrl, FG);
 	display.fillTriangle(yaxis, yend, yaxis+arrl, yend+arrl, yaxis-arrl, yend+arrl, FG);
+	//Help lines
+	for (int x = 33; x < 33+7*22; x += 2) {
+		display.drawPixel(x, xaxis-20, FG);
+		display.drawPixel(x, xaxis-40, FG);
+		display.drawPixel(x, xaxis-60, FG);
+	}
+	for (int x = 33; x <= 33+7*22; x += 22) for (int y = 3; y < 60; y += 3) {
+		display.drawPixel(x, xaxis-y, FG);
+	}
 
 	//day names under x axis, notches, and the graph.
 	int16_t prev_y = -1;
@@ -686,12 +705,14 @@ void OverrideGSR::drawStepsPage() {
 		u8display->print(dayname);
 		display.fillTriangle(x1, xaxis-2, x1-1, xaxis-1, x1+1, xaxis-1, FG);
 		int16_t y = xaxis - 60*((i<7) ? WeekSteps.daysteps[(day+i) % 7] : getCounter())/maxStep;
+		if (y != xaxis) display.fillRoundRect(x1-2, y-2, 6, 6, 3, FG);
 		if (prev_y > -1) {
-			//Fatter line by triple drawing. 
-			//once with y offset, once with x offset. In total, always thickness 2.
+			//Fatter line by quad drawing. 
+			//For all slopes, thickness 2.
 			display.drawLine(x1-21, prev_y, x1+1, y, FG);
 			display.drawLine(x1-22, prev_y, x1, y, FG);
 			display.drawLine(x1-22, prev_y+1, x1, y+1, FG);
+			display.drawLine(x1-21, prev_y+1, x1+1, y+1, FG);
 		}
 		prev_y = y;	
 	}
@@ -703,7 +724,7 @@ void OverrideGSR::drawStepsPage() {
 	printleft(yaxis-5, xaxis-10, s);
 	num2str(2*maxStep/3000, s);
 	printleft(yaxis-5, xaxis-10-20, s);
-	display.setCursor(yaxis+7, xaxis-45);
+	display.setCursor(yaxis+6, xaxis-45);
 	u8display->print("k");
 	//Bumps/notches
 	display.fillTriangle(yaxis-2, xaxis-20, yaxis-1, xaxis-21, yaxis-1, xaxis-19, FG);
@@ -712,12 +733,6 @@ void OverrideGSR::drawStepsPage() {
 	if (maxStep <= 30000) for (int y = 1000; y<maxStep; y += 1000) {
 		display.writeFastHLine(yaxis+1, xaxis - (float)y/maxStep * 60, 2, FG);
 	}
-
-	display.setFont(&FreeSansBold15pt7b); //numeric only
-	display.setCursor(45, 57);
-	drawSteps(getCounter());
-	display.setCursor(45,87);
-	drawSteps(Steps.Yesterday);
 
 	//battery
 	display.writeFastHLine(0, 178, 199, FG);
@@ -987,7 +1002,8 @@ juni: add montshift[6]=4
 	u8display->print(' ');
 	u8display->print(Year);
 	//ca 9.5 pix/char, or 19 pixles for two chars, 28 for a group
-	//Use getTextBounds for perfect right adjustment        
+	//Use getTextBounds for perfect right adjustment
+	//Could also use printleft(), now that it is implemented.	
 	for (int i = 0; i < 7; ++i) {
 		u8display->getTextBounds(dayname2[i], 0, 0, &x1, &y1, &w, &h);
 		display.setCursor(28*i+19-x1-w, 50);
