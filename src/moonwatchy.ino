@@ -419,7 +419,6 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 	if (!SafeToDraw()) return;
 
 	u8display = new utf8_GFX(&display); //For utf-8 printing
-	stepCheck(); 
   /*
 		Substyles:
 		0 main watch face (12 or 24 hour, with hands) moon phase
@@ -434,6 +433,7 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 
 	*/
 	if (rebooted) handleReboot();
+	stepCheck(); 
 	switch (subStyle) {
 		case 0: //12 or 24 hour analog watch
 			if (StyleID) {
