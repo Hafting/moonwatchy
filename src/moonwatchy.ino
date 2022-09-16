@@ -271,6 +271,7 @@ class OverrideGSR : public WatchyGSR {
 		void drawSteps(uint32_t steps);
 		void drawClockSteps(uint32_t steps);
 		void drawStepsPage();
+		void drawStepsTable();
 		void handleReboot();
 		void saveStepcounter();
 		void msgBox(char const * const s);
@@ -506,14 +507,16 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 				drawCalendar(month, year);
 			}
 			break;
-		case 6: //unused
+		case 5: //unused
 			subStyle = 3;
 			//fall through deliberately
 		case 3: //Picture of owner
 			drawOwner();
 			break;
+		case 6: //Table with 8 days of steps
+			drawStepsTable();
+			break;
 		case 4: //unused
-		case 5: //unused
 			subStyle = 7;
 			//fall through deliberately
 		case 7: //Various sensor info: steps, battery. Also shows time
@@ -615,6 +618,13 @@ void OverrideGSR::printleft(int16_t x, int16_t y, char const * const s) {
 	u8display->print(s);
 }
 
+/*
+   Page with steps for 8 days, in table form.
+*/
+void OverrideGSR::drawStepsTable() {
+	//!!!not done
+	
+}
 
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
