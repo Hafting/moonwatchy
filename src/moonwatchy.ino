@@ -245,18 +245,28 @@ RTC_DATA_ATTR uint8_t subStyle; //Moonwatch has several pages (clock, calendar, 
 
 class OverrideGSR : public WatchyGSR {
 	public:
-		//utf8_GFX * u8display = new utf8_GFX(&display); 
 		utf8_GFX *u8display;
  		OverrideGSR() : WatchyGSR() {};
+		//GSR stuff
 		String InsertNTPServer() { return "ntp.justervesenet.no"; }
 		void InsertDefaults() { AllowDefaultWatchStyles(false); Steps.Hour = 5; };
 		void InsertAddWatchStyles();
 		void InsertInitWatchStyle(uint8_t StyleID);
 		void InsertDrawWatchStyle(uint8_t StyleID);
 		bool InsertHandlePressed(uint8_t SwitchNumber, bool &Haptic, bool &Refresh);
+		//Support functions
 		char const *zodiacsign(int month, int day);
 		float moonphase(int year, int month, int day, int hour, int minute);
 		bool alarm_active_59min(int8_t alno);
+		void handleReboot();
+		void saveStepcounter();
+		void msgBox(char const * const s);
+		uint8_t getStepDay();
+		uint32_t getCounter();
+		void stepCheck();
+		void num2str(uint32_t n, char *s, uint8_t smax);
+		//Drawing functions
+		void printleft(int16_t x, int16_t y, char const * const s);
 		void drawAlarmMin(int8_t min);
 		void drawDate(int16_t x, float y);
 		void draw12hours();
@@ -266,20 +276,15 @@ class OverrideGSR : public WatchyGSR {
 		void draw24hourHands();
 		void drawNamePlate(float x, int16_t y);
 		void drawMoon();
-		void drawCalendar(uint8_t Month, uint16_t Year);
-		void drawOwner();
 		void drawSteps(uint32_t steps);
 		void drawClockSteps(uint32_t steps);
-		void drawStepsPage();
-		void drawStepsTable();
-		void handleReboot();
-		void saveStepcounter();
-		void msgBox(char const * const s);
-		uint8_t getStepDay();
-		uint32_t getCounter();
-		void stepCheck();
-		void printleft(int16_t x, int16_t y, char const * const s);
-		void num2str(uint32_t n, char *s, uint8_t smax);
+		//Clock faces
+		void face12analog();
+		void face24analog();
+		void faceCalendar(uint8_t Month, uint16_t Year);
+		void faceOwner();
+		void faceStepsGraph();
+		void faceStepsTable();
 };
 
 /*
@@ -434,69 +439,20 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 		1 Calendar for this month
 		2 Calendar for next month
 		3 picture of owner
-		4 ->7
-		5 ->7
-		6 ->3
-		7 display step counter, battery status, whatever other tech info that fits
+		4 ->6
+		5 ->3
+		6 step counter table for 7 days + today
+		7 display step counter week graph, battery status
 
 	*/
 	if (rebooted) handleReboot();
 	stepCheck(); 
 	switch (subStyle) {
 		case 0: //12 or 24 hour analog watch
-			if (StyleID) {
-				drawMinuteMarks();
-				drawMoon();
-				draw24hours();
-				draw24hourHands();
-        //Name and date that moves away from the short hand:
-        if (WatchTime.Local.Hour >= 22 || WatchTime.Local.Hour < 2) drawNamePlate(99.5, 151);
-        else drawNamePlate(99.5, 48); //normal place
-
-        if (WatchTime.Local.Hour < 20 && WatchTime.Local.Hour >= 16) drawDate(151, 99.5);
-        else drawDate(48, 99.5);
-
-			} else {
-				uint8_t hour12 = (WatchTime.Local.Hour+11) % 12 + 1;
-				draw12hours();
-				drawMinuteMarks();
-				drawMoon();
-				draw12hourHands(hour12);
-
-				//Name and date should move out of the way of the short hand
-				//Also, avoid the long hand when the short hand isn't in the alternate location
-
-				//The short hand needs the space about 10:30-1:30
-				//10:37-1:23, avoiding unnecessary crash with the long hand
-				/*The long hand needs the space about x:55-x:05, unless the short hand points to 5,6,7
-          Note that at 4:55, the sort hand almost points to 5.
-					At 7:55, it almost points to 8.
-				*/
-				if (hour12 >= 11 || 
-						(hour12 == 10 && WatchTime.Local.Minute >= 37) ||
-						(hour12 == 1 && WatchTime.Local.Minute < 23) ||
-						(WatchTime.Local.Minute <= 5 && (hour12 < 5 || hour12 > 7)) ||
-						(WatchTime.Local.Minute >= 55 && (hour12 < 4 || hour12 > 6)) ) {
-					//Move name away from the small hand
-					drawNamePlate(99.5, 151);       
-				} else drawNamePlate(99.5, 48); //normal place
-
-				//Short hand needs the space about 8 to 10
-				//Long hand needs the space x:40 to x:50, unless hour is 2 or 3
-				//Limit at 10, but 9 goes up to 9:59, so...
-				if ((hour12 >= 8 && hour12 <= 9) ||
-						((hour12 < 2 || hour12 > 3) &&
-						 WatchTime.Local.Minute >= 40 &&
-						 WatchTime.Local.Minute <= 50
-						)
-					 ) drawDate(153, 99.5);
-				else drawDate(46, 99.5);
-
-			}
-			drawClockSteps(getCounter());
+			if (StyleID) face24analog(); else face12analog();
 			break;
 		case 1: //Calendar for this month
-			drawCalendar(WatchTime.Local.Month, WatchTime.Local.Year + 1900);
+			faceCalendar(WatchTime.Local.Month, WatchTime.Local.Year + 1900);
 			break;
 		case 2:	//Calendar for next month
 			{
@@ -506,27 +462,82 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 					month = 0;
 					++year;
 				}
-				drawCalendar(month, year);
+				faceCalendar(month, year);
 			}
 			break;
 		case 5: //unused
 			subStyle = 3;
 			//fall through deliberately
 		case 3: //Picture of owner
-			drawOwner();
+			faceOwner();
 			break;
 		case 4: //unused
 			subStyle = 6;
 			//fall through deliberately
 		case 6: //Table with 8 days of steps
-			drawStepsTable();
+			faceStepsTable();
 			break;
 		case 7: //Various sensor info: steps, battery. Also shows time
-			drawStepsPage();
+			faceStepsGraph();
 	}
 
 		delete u8display; //could be more persistent?			
 };
+
+
+//12-hour clock with nice looking hands
+void OverrideGSR::face12analog(){
+	uint8_t hour12 = (WatchTime.Local.Hour+11) % 12 + 1;
+	draw12hours();
+	drawMinuteMarks();
+	drawMoon();
+	draw12hourHands(hour12);
+
+	//Name and date should move out of the way of the short hand
+	//Also, avoid the long hand when the short hand isn't in the alternate location
+
+	//The short hand needs the space about 10:30-1:30
+	//10:37-1:23, avoiding unnecessary crash with the long hand
+	/*The long hand needs the space about x:55-x:05, unless the short hand points to 5,6,7
+		Note that at 4:55, the sort hand almost points to 5.
+		At 7:55, it almost points to 8.
+	 */
+	if (hour12 >= 11 || 
+			(hour12 == 10 && WatchTime.Local.Minute >= 37) ||
+			(hour12 == 1 && WatchTime.Local.Minute < 23) ||
+			(WatchTime.Local.Minute <= 5 && (hour12 < 5 || hour12 > 7)) ||
+			(WatchTime.Local.Minute >= 55 && (hour12 < 4 || hour12 > 6)) ) {
+		//Move name away from the small hand
+		drawNamePlate(99.5, 151);       
+	} else drawNamePlate(99.5, 48); //normal place
+
+	//Short hand needs the space about 8 to 10
+	//Long hand needs the space x:40 to x:50, unless hour is 2 or 3
+	//Limit at 10, but 9 goes up to 9:59, so...
+	if ((hour12 >= 8 && hour12 <= 9) ||
+			((hour12 < 2 || hour12 > 3) &&
+			 WatchTime.Local.Minute >= 40 &&
+			 WatchTime.Local.Minute <= 50
+			)
+		 ) drawDate(153, 99.5);
+	else drawDate(46, 99.5);
+	drawClockSteps(getCounter());
+}
+
+
+void OverrideGSR::face24analog() {
+	drawMinuteMarks();
+	drawMoon();
+	draw24hours();
+	draw24hourHands();
+	//Name and date that moves away from the short hand:
+	if (WatchTime.Local.Hour >= 22 || WatchTime.Local.Hour < 2) drawNamePlate(99.5, 151);
+	else drawNamePlate(99.5, 48); //normal place
+
+	if (WatchTime.Local.Hour < 20 && WatchTime.Local.Hour >= 16) drawDate(151, 99.5);
+	else drawDate(48, 99.5);
+	drawClockSteps(getCounter());
+}
 
 
 /*
@@ -651,7 +662,7 @@ uint8_t OverrideGSR::getStepDay() {
    Page with steps for 8 days, in table form.
 	 For those who wants to see exact stepcounts
 */
-void OverrideGSR::drawStepsTable() {
+void OverrideGSR::faceStepsTable() {
 	u8display->setTextColor(FG);
 	uint8_t sday = getStepDay();
 	for (int i = 0; i <= 7; ++i) {
@@ -673,7 +684,7 @@ void OverrideGSR::drawStepsTable() {
 
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
-void OverrideGSR::drawStepsPage() {
+void OverrideGSR::faceStepsGraph() {
 	//Time+date
 	drawDate(175,25);
 	u8display->USEFONTSET(leaguegothic12pt);
@@ -876,7 +887,7 @@ char const *OverrideGSR::zodiacsign(int month, int day) {
 }
 
 
-void OverrideGSR::drawOwner() {
+void OverrideGSR::faceOwner() {
         display.drawBitmap(16, 0, epd_bmp_ownerHelge, 168, 200, FG);
 }
 
@@ -964,7 +975,7 @@ void OverrideGSR::drawMoon() {
 }
 
 
-void OverrideGSR::drawCalendar(uint8_t Month, uint16_t Year) {
+void OverrideGSR::faceCalendar(uint8_t Month, uint16_t Year) {
 	//Month calendar. Eventually, with caldav events...
 	/*
 Layout:                                  
