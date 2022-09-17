@@ -726,11 +726,13 @@ void OverrideGSR::faceStepsGraph() {
 	//Draw graph heavier than the axes, it could overlap with the X axis
 
 	//Find the maximum, for scaling
-	uint32_t maxStep = max(getCounter(), (uint32_t)4000); 
+	uint32_t maxStep = max(getCounter(), (uint32_t)4000); //4000 is abs. minimum 
 	for (int i = 0; i < 7; ++i) maxStep = max(WeekSteps.daysteps[i],  maxStep); 
 
-	//Rounding. Max divisible by 3000
-	maxStep = ((maxStep + 3999) / 4000) * 4000;
+	//Rounding. Max divisible by 4000
+	//The printed scale stops at 80 pixels, the printed number needs room
+	//There is 90 pixels available for plotting, so use 80/90=8/9 for scaling
+	maxStep = ((maxStep*8/9 + 3999) / 4000) * 4000;
 
 	//underline at  y=177
 	//overline at y=91 now 61
@@ -741,10 +743,10 @@ void OverrideGSR::faceStepsGraph() {
 	const int xaxis = 155;
 	const int xend = 200-3;
 	const int yaxis = 22;
-	const int yend = xaxis-90;
+	const int yend = xaxis-92;
 	const int arrl = 3; //Arrow length
 	display.writeFastHLine(6, xaxis, xend-6, FG);
-	display.writeFastVLine(yaxis, xaxis+1, yend-xaxis-1, FG);
+	display.writeFastVLine(yaxis, xaxis+6, yend-xaxis-4, FG);
 	//Arrows on axes
 	display.fillTriangle(xend, xaxis, xend-arrl, xaxis-arrl, xend-arrl, xaxis+arrl, FG);
 	display.fillTriangle(yaxis, yend, yaxis+arrl, yend+arrl, yaxis-arrl, yend+arrl, FG);
@@ -803,7 +805,7 @@ void OverrideGSR::faceStepsGraph() {
 	display.fillTriangle(yaxis-2, xaxis-60, yaxis-1, xaxis-61, yaxis-1, xaxis-59, FG);
 	display.fillTriangle(yaxis-2, xaxis-80, yaxis-1, xaxis-81, yaxis-1, xaxis-79, FG);
 	//
-	if (maxStep <= 40000) for (uint32_t y = 1000; y <= maxStep; y += 1000) {
+	if (maxStep <= 40000) for (uint32_t y = 1000; y <= maxStep*9/8; y += 1000) {
 		display.writeFastHLine(yaxis+1, xaxis - y*80/maxStep, 2, FG);
 	}
 
