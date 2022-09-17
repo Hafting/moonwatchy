@@ -580,7 +580,6 @@ void OverrideGSR::handleReboot() {
 		WeekSteps.stepOffset = 0;
 	} else WeekSteps.stepOffset = 0;
 
-
 	//Saved weekday stepcounts, if any:
 	for (int i=0; i<7; ++i) {
 		//No special case for "not found", as "not found" yields a zero int.
@@ -705,16 +704,16 @@ void OverrideGSR::faceStepsGraph() {
 
 	//steps
 	printleft(32, 54, "Steg:");
-	printleft(32, 84, "I går:");
-	display.writeFastHLine(0, 91, 200, FG);
+//	printleft(32, 84, "I går:");
+	display.writeFastHLine(0, 61, 200, FG);
 
 	u8display->USEFONTSET(freesansbold15pt);
 	display.setFont(&FreeSansBold15pt7b); //numeric only
 	display.setCursor(45, 56);
 	drawSteps(getCounter());
-	display.setCursor(45,86);
-	drawSteps(Steps.Yesterday);
-
+//	display.setCursor(45,86);
+//	drawSteps(Steps.Yesterday);
+//30 extra
 	u8display->USEFONTSET(leaguegothic12pt); //Back to the usual font
 
 	//Draw a graph with steps and days
@@ -727,14 +726,14 @@ void OverrideGSR::faceStepsGraph() {
 	//Draw graph heavier than the axes, it could overlap with the X axis
 
 	//Find the maximum, for scaling
-	uint32_t maxStep = max(getCounter(), (uint32_t)3000); // < 3000 won't work
+	uint32_t maxStep = max(getCounter(), (uint32_t)4000); 
 	for (int i = 0; i < 7; ++i) maxStep = max(WeekSteps.daysteps[i],  maxStep); 
 
 	//Rounding. Max divisible by 3000
-	maxStep = ((maxStep + 2999) / 3000) * 3000;
+	maxStep = ((maxStep + 3999) / 4000) * 4000;
 
 	//underline at  y=177
-	//overline at y=91
+	//overline at y=91 now 61
 
 	uint8_t day = getStepDay();
 
@@ -742,7 +741,7 @@ void OverrideGSR::faceStepsGraph() {
 	const int xaxis = 155;
 	const int xend = 200-3;
 	const int yaxis = 22;
-	const int yend = xaxis-60;
+	const int yend = xaxis-90;
 	const int arrl = 3; //Arrow length
 	display.writeFastHLine(6, xaxis, xend-6, FG);
 	display.writeFastVLine(yaxis, xaxis+1, yend-xaxis-1, FG);
@@ -754,8 +753,9 @@ void OverrideGSR::faceStepsGraph() {
 		display.drawPixel(x, xaxis-20, FG);
 		display.drawPixel(x, xaxis-40, FG);
 		display.drawPixel(x, xaxis-60, FG);
+		display.drawPixel(x, xaxis-80, FG);
 	}
-	for (int x = 33; x <= 33+7*22; x += 22) for (int y = 3; y < 60; y += 3) {
+	for (int x = 33; x <= 33+7*22; x += 22) for (int y = 3; y < 90; y += 3) {
 		display.drawPixel(x, xaxis-y, FG);
 	}
 
@@ -770,7 +770,7 @@ void OverrideGSR::faceStepsGraph() {
 		display.setCursor(x1 - width/2, 175);
 		u8display->print(dayname);
 		display.fillTriangle(x1, xaxis-2, x1-1, xaxis-1, x1+1, xaxis-1, FG);
-		int16_t y = xaxis - 60*((i<7) ? WeekSteps.daysteps[(day+i) % 7] : getCounter())/maxStep;
+		int16_t y = xaxis - 80*((i<7) ? WeekSteps.daysteps[(day+i) % 7] : getCounter())/maxStep;
 		if (y != xaxis) display.fillRoundRect(x1-2, y-2, 6, 6, 3, FG);
 		if (prev_y > -1) {
 			//Fatter line by quad drawing. 
@@ -786,18 +786,25 @@ void OverrideGSR::faceStepsGraph() {
 	//Numbers at y axis
 	char s[3] = {0,0,0};
 	display.setCursor(0, xaxis-10);
-	num2str(maxStep/3000, s, 2);
+	num2str(maxStep/4000, s, 2);
 	printleft(yaxis-5, xaxis-10, s);
-	num2str(2*maxStep/3000, s, 2);
+	num2str(2*maxStep/4000, s, 2);
 	printleft(yaxis-5, xaxis-10-20, s);
-	display.setCursor(yaxis+6, xaxis-45);
+	num2str(3*maxStep/4000, s, 2);
+	printleft(yaxis-5, xaxis-10-40, s);
+	num2str(4*maxStep/4000, s, 2);
+	printleft(yaxis-5, xaxis-10-60, s);
+
+	display.setCursor(yaxis+6, xaxis-75);
 	u8display->print("k");
 	//Bumps/notches
 	display.fillTriangle(yaxis-2, xaxis-20, yaxis-1, xaxis-21, yaxis-1, xaxis-19, FG);
 	display.fillTriangle(yaxis-2, xaxis-40, yaxis-1, xaxis-41, yaxis-1, xaxis-39, FG);
+	display.fillTriangle(yaxis-2, xaxis-60, yaxis-1, xaxis-61, yaxis-1, xaxis-59, FG);
+	display.fillTriangle(yaxis-2, xaxis-80, yaxis-1, xaxis-81, yaxis-1, xaxis-79, FG);
 	//
-	if (maxStep <= 30000) for (int y = 1000; y<maxStep; y += 1000) {
-		display.writeFastHLine(yaxis+1, xaxis - (float)y/maxStep * 60, 2, FG);
+	if (maxStep <= 40000) for (uint32_t y = 1000; y <= maxStep; y += 1000) {
+		display.writeFastHLine(yaxis+1, xaxis - y*80/maxStep, 2, FG);
 	}
 
 	//battery
