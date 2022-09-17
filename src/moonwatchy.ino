@@ -685,19 +685,23 @@ void OverrideGSR::faceStepsTable() {
 //Page where the steps are important,
 //Todays, yesterdays, and a graph for last week.
 void OverrideGSR::faceStepsGraph() {
-	//Time+date
-	drawDate(175,25);
+	//Day & date on top
+	u8display->setTextColor(FG);
 	u8display->USEFONTSET(leaguegothic12pt);
-	display.setCursor(35, 25);
-	u8display->print("Tid:");
+	printleft(32, 25, "Tid:");
 	display.setFont(&Uechi_Gothic20pt7b);
-	display.setCursor(70, 26);
+	display.setCursor(45, 26);
 	display.print(WatchTime.Local.Hour);
 	display.print(":"); 
 	if (WatchTime.Local.Minute < 10) display.print("0");
 	display.print(WatchTime.Local.Minute);
-	display.writeFastHLine(0, 30, 150-0, FG);
-	display.writeFastVLine(150, 30, 91-30, FG);
+	display.setCursor(110,26);
+	display.print(WatchTime.Local.Day);
+	display.print(".");
+	display.print(WatchTime.Local.Month + 1);
+	display.print(".");
+	display.print(WatchTime.Local.Year - 100);
+	display.writeFastHLine(0, 30, 200, FG);
 
 	//steps
 	printleft(32, 54, "Steg:");
