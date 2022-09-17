@@ -275,9 +275,11 @@ class OverrideGSR : public WatchyGSR {
 		void handleReboot();
 		void saveStepcounter();
 		void msgBox(char const * const s);
+		uint8_t getStepDay();
 		uint32_t getCounter();
 		void stepCheck();
 		void printleft(int16_t x, int16_t y, char const * const s);
+		void num2str(uint32_t n, char *s, uint8_t smax);
 };
 
 /*
@@ -513,12 +515,12 @@ void OverrideGSR::InsertDrawWatchStyle(uint8_t StyleID) {
 		case 3: //Picture of owner
 			drawOwner();
 			break;
+		case 4: //unused
+			subStyle = 6;
+			//fall through deliberately
 		case 6: //Table with 8 days of steps
 			drawStepsTable();
 			break;
-		case 4: //unused
-			subStyle = 7;
-			//fall through deliberately
 		case 7: //Various sensor info: steps, battery. Also shows time
 			drawStepsPage();
 	}
@@ -588,21 +590,39 @@ void OverrideGSR::handleReboot() {
 
 
 /*
-  Convert numbers < 100 to string.
-	s[2] is supposed to be \0
+  Converts positive integer to string.
+	Caller supply the string, and a maximum length
+	char string[max+1], (room for \0)
+	If the number is too large, set the string to XXX...
 	 */
-void num2str(uint16_t n, char s[3]) {
-	if (n >= 100) {
-		s[0]=s[1]='X';
+void OverrideGSR::num2str(uint32_t n, char *s, uint8_t smax) {
+	if (!smax) return;
+	if (!n) {
+		s[0] = '0';
+		s[1] = 0;
 		return;
 	}
-	if (n >= 10) {
-		s[1] = n % 10 + '0';
-		s[0] = n / 10 + '0';
-	} else {
-		s[0] = n + '0';
-		s[1] = 0;
+	//Convert digit by digit
+	uint8_t i, j;
+  for (i = 0; n; ++i) {
+		//Too much?
+		if (i == smax) {
+			s[i] = 0;
+			do s[--i] = 'X'; while(i);
+			return;
+		}
+		//conversion
+		s[i] = (n % 10) + '0';
+		n = n / 10;
 	}
+	s[i--] = 0;
+	//Have digits backwards, reverse:
+	for (j = 0; j < i; ++j, --i) {
+		char x = s[j];
+		s[j] = s[i];
+		s[i] = x;
+	}
+	return;
 }
 
 
@@ -618,11 +638,36 @@ void OverrideGSR::printleft(int16_t x, int16_t y, char const * const s) {
 	u8display->print(s);
 }
 
+//The step counter does not reset at midnight, but a more convenient time
+//So the dayname lags between midnight and stepcounter reset time.
+uint8_t OverrideGSR::getStepDay() {
+	uint8_t day = WatchTime.Local.Wday;
+	if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) day = (day + 7 - 1) % 7;
+	return day;
+}
+
+
 /*
    Page with steps for 8 days, in table form.
+	 For those who wants to see exact stepcounts
 */
 void OverrideGSR::drawStepsTable() {
-	//!!!not done
+	u8display->setTextColor(FG);
+	uint8_t sday = getStepDay();
+	for (int i = 0; i <= 7; ++i) {
+		u8display->USEFONTSET(leaguegothic12pt);
+		char const * const dayname = (i < 7) ? dayname2[(sday + i + 7 - 1) % 7] : "nå";
+		printleft(25, 22+25*i, dayname);
+		u8display->USEFONTSET(freesansbold15pt);
+		uint32_t stepc = (i<7) ? WeekSteps.daysteps[(sday+i) % 7] : getCounter() ;
+		char steps[7];
+		num2str(stepc, steps, 6);
+		printleft(130, 23+25*i, steps);
+		u8display->USEFONTSET(leaguegothic12pt);
+		display.setCursor(140, 22+25*i);
+		if (stepc > 100000) u8display->print(" ☻");
+		else if (stepc > 10000) u8display->print(" ☺");
+	}
 	
 }
 
@@ -676,11 +721,7 @@ void OverrideGSR::drawStepsPage() {
 	//underline at  y=177
 	//overline at y=91
 
-
-	//The step counter does not reset at midnight, but a more convenient time
-	//So the dayname lags between midnight and stepcounter reset time.
-	uint8_t day = WatchTime.Local.Wday;
-	if (WatchTime.Local.Hour < Steps.Hour || (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes)) day = (day + 7 - 1) % 7;
+	uint8_t day = getStepDay();
 
 	//Axes
 	const int xaxis = 155;
@@ -708,7 +749,7 @@ void OverrideGSR::drawStepsPage() {
 	for (int i = 0; i <= 7; ++i) {
 		int16_t x1, y1;
 		uint16_t width, height;
-		char const * const dayname = dayname2[(day + i + 7 - 1) % 7];
+		char const * const dayname = (i<7) ? dayname2[(day + i + 7 - 1) % 7] : "nå";
 		u8display->getTextBounds(dayname, 0, 0, &x1, &y1, &width, &height);
 		x1 = 33 + 22*i;
 		display.setCursor(x1 - width/2, 175);
@@ -730,9 +771,9 @@ void OverrideGSR::drawStepsPage() {
 	//Numbers at y axis
 	char s[3] = {0,0,0};
 	display.setCursor(0, xaxis-10);
-	num2str(maxStep/3000, s);
+	num2str(maxStep/3000, s, 2);
 	printleft(yaxis-5, xaxis-10, s);
-	num2str(2*maxStep/3000, s);
+	num2str(2*maxStep/3000, s, 2);
 	printleft(yaxis-5, xaxis-10-20, s);
 	display.setCursor(yaxis+6, xaxis-45);
 	u8display->print("k");
