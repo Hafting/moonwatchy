@@ -787,6 +787,14 @@ void OverrideGSR::faceStepsGraph() {
 		display.drawPixel(x, xaxis-y, FG);
 	}
 
+	//The daily goal of 10 000 steps
+  //xaxis-80*10000/maxStep
+	int ygoal = 80*10000/maxStep;	
+	if (ygoal <= 90) {
+		ygoal = xaxis - ygoal;
+		for (int x = 34; x < 34+7*22; x+=2) display.drawPixel(x, ygoal, FG);
+	}
+
 	//day names under x axis, notches, and the graph.
 	int16_t prev_y = -1;
 	for (int i = 0; i <= 7; ++i) {
