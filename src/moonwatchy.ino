@@ -401,6 +401,7 @@ Possible causes and fixes:
 	- Last stepcheck was "before step reset time", now it is "after/at step reset time". 
     Robust if we assume that time does not run backwards.  
 	  Small jumps backwards are ruled out using "lastUpdate" anyway.
+
 */
 void OverrideGSR::stepCheck() {
 	//Are we before step reset time?
@@ -580,7 +581,10 @@ void OverrideGSR::face24analog() {
       SBMA.getCounter() replaced with getCounter() that 
 			adds in this offset.
 
-   
+
+Immediately after a reboot, we DON'T have better data than what is in NVS already,
+so make sure the stepcheck won't trip (unless saving a fix-it value)
+lastUpdate is likely 0, initialize to computed yesterday
 	 */
 
 void OverrideGSR::handleReboot() {
@@ -604,6 +608,10 @@ void OverrideGSR::handleReboot() {
 		//No special case for "not found", as "not found" yields a zero int.
 		WeekSteps.daysteps[i] = NVS.getInt(mwdaystep[i]);
 	}
+
+	//Set lastUpdate so we don't trigger a bogus stepcount reset+save immediately:
+	WeekSteps.lastUpdate = (WatchTime.Local.Wday + 7 - 1) % 7;
+
 	//Also update Steps.Yesterday
 	//The stepcounter is not reset at midnight, but at a more convenient time.
 	//So "yesterday" is usually Wday-1, but could be Wday-2 when the day is new 
