@@ -3,8 +3,13 @@
   Moonwatchy. Watch with moon phases and calendar, based on Watchy_GSR
 	 */
 
-
+//Disrupt "private", so unbug() will compile. 
+//C++ is not supposed to "get in the way"
+//uncomment the hack when needed.
+//#define private public
 #include "Watchy_GSR.h"
+//#undef private
+
 #include "gfx-utf8.h"
 #include "UechiGothic20num.h"    //numbers for 12-hour face
 #include "Gogh_ExtraBold7A_T.h"  //A-T, for "HAFTING" on the watch face
@@ -70,6 +75,30 @@ extern RTC_DATA_ATTR struct BatteryUse final {
     float MinLevel;         // Lowest level before the indicator comes on.
     float LowLevel;         // The battery is about to get too low for the RTC to function.
 } Battery;
+
+extern RTC_DATA_ATTR struct Optional final {
+    bool TwentyFour;                  // If the face shows 24 hour or Am/Pm.
+    bool LightMode;                    // Light/Dark mode.
+    bool Feedback;                    // Haptic Feedback on buttons.
+    bool Border;                      // True to set the border to black/white.
+    bool Lefty;                       // Swaps the buttons to the other side.
+    bool Swapped;                     // Menu and Back buttons swap ends (vertically).
+    bool Orientated;                  // Set to false to not bother which way the buttons are.
+    uint8_t Turbo;                    // 0-10 seconds.
+    uint8_t MasterRepeats;            // Done for ease, will be in the Alarms menu.
+    int Drift;                        // Seconds drift in RTC.
+    bool UsingDrift;                  // Use the above number to add to the RTC by dividing it by 1000.
+    uint8_t SleepStyle;               // 0==Disabled, 1==Always, 2==Sleeping
+    uint8_t SleepMode;                // Turns screen off (black, won't show any screen unless a button is pressed)
+    uint8_t SleepStart;               // Hour when you go to bed.
+    uint8_t SleepEnd;                 // Hour when you wake up.
+    uint8_t Performance;              // Performance style, "Turbo", "Normal", "Battery Saving" 
+    bool NeedsSaving;                 // NVS code to tell it things have been updated, so save to NVS.
+    bool BedTimeOrientation;          // Make Buttons only work while Watch is in normal orientation.
+    uint8_t WatchFaceStyle;           // Using the Style values from Defines_GSR.
+    uint8_t LanguageID;               // The LanguageID.
+} Options;
+
 
 //Font sets for UTF-8 printing:
 const GFXfont *Engine5pt[2] = {&Engine5pt7b, &Engine5pt8b}; 
@@ -285,6 +314,8 @@ class OverrideGSR : public WatchyGSR {
 		void faceOwner();
 		void faceStepsGraph();
 		void faceStepsTable();
+		//Disaster recovery
+		void unbug();
 };
 
 /*
@@ -322,6 +353,38 @@ class OverrideGSR : public WatchyGSR {
     void InsertWiFiEnding(){
     };
 */
+
+		/*
+			Menu "detect drift" may decide that the RTC isn't good at keeping time.
+			This is NOT NOT NOT a reason to black out the screen or any other
+			draconian measures GSR does by default when the RTC isn't perfect 
+
+			Having a watch where everything works despite gaining 
+			a minute per day, is important. Here we try to unbug it.
+			Everything hardcoded, so this can be used when the menu
+			is not accessible. Stubborn GSR saves this state to NVS, so
+			it persists across reboot & reprogramming.
+
+      Solution: unbug settings, and save them. See if it helps...
+
+			 */
+    void OverrideGSR::unbug() {
+			return; //Not for normal use.
+			Options.Swapped = false;
+			Options.Lefty = false;
+			Options.LightMode = true;
+			Options.Feedback = true;
+			Options.UsingDrift = false;
+			Options.Drift = 0;
+			Options.SleepStyle = 0;
+			Options.NeedsSaving = true;
+			WatchTime.DeadRTC = false; //Why blank the display and all that nonesense?
+      //RecordSettings(); //NEEDED, but PRIVATE. 
+			//To use it anyway, uncomment (and comment the return statement on top.
+			//Then, uncomment "define private public" hack near the start of this file.
+			//Then, compile with "private" undone!
+
+		}
 
 // The next 3 functions allow you to add your own WatchFaces, there are examples that do work below.
 
@@ -565,6 +628,8 @@ void OverrideGSR::face24analog() {
 	 */
 
 void OverrideGSR::handleReboot() {
+	unbug(); //cancel the hopeless state after "detect travel" fails.
+
 	//Handle the reboot, by re-fetching stuff from NVS (flash)
 
 	//Saved daily stepcount, if any:
