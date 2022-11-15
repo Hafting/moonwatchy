@@ -38,7 +38,7 @@
 //Picture of watch owner
 #include "Helge.h"
 
-//Constant for moon phase calculation:
+//Constant for moon phase calculation, length of a synodic month in days:
 //Source: http://individual.utoronto.ca/kalendis/lunar/#FALC
 #define SYNODIC_MONTH (29.53058770576)
 
@@ -448,30 +448,50 @@ RTC_DATA_ATTR struct {
 	uint8_t lastUpdate; //weekday of last shift. To avoid double updates.
 } WeekSteps;
 
-//If we are at reset time for the stepcounter,
-//also update the week log. Also store the newly completed day in NVS
+/*
+If we are at reset time for the stepcounter,
+also update the week log. Also store the newly completed day in NVS
+
+Needs a more robust check? BUG: stepOffset was NOT reset, inflating numbers
+Possible causes and fixes:
+ * clock skipped the exact hour & minute, (NTP adjustment? Slightly fast RTC?
+   In that case, stepOffset is not reset and they count not saved to NTP.
+	Looks like this happened. sunday stepcount of 9128 was indeed not saved,
+  instead 8624 from prev. sunday?  And the day started with 2692 bogus steps,
+  possibly a stepOffset carried over.
+
+  Robust detection schemes:
+	- Last stepcheck was "before step reset time", now it is "after/at step reset time". 
+    Robust if we assume that time does not run backwards.  
+	  Small jumps backwards are ruled out using "lastUpdate" anyway.
+
+*/
 void OverrideGSR::stepCheck() {
-	if (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute == Steps.Minutes) {
+	//Are we before step reset time?
+	if (WatchTime.Local.Hour < Steps.Hour) return;
+	if (WatchTime.Local.Hour == Steps.Hour && WatchTime.Local.Minute < Steps.Minutes) return;
+	//At or after reset time. Check if the work is done already - or not
+
+	//Checking for exact reset time does not work - the watch sometimes skips a minute!
+
+	//Find daynumber for yesterday
+	uint8_t yesterday = (WatchTime.Local.Wday + 7 - 1) % 7;
+	//Further check to see if the work is done already:
+	if (WeekSteps.lastUpdate != yesterday) {
 		//The stepcounter was reset, and accumulated steps are in Steps.Yesterday
-		//Find daynumber for yesterday
-		uint8_t yesterday = (WatchTime.Local.Wday + 7 - 1) % 7;
-		//Further check to see if the work is done already:
-		if (WeekSteps.lastUpdate != yesterday) {
-			Steps.Yesterday += WeekSteps.stepOffset; //Correct GSR if need be.
-			WeekSteps.daysteps[yesterday] = Steps.Yesterday;
-			WeekSteps.lastUpdate = yesterday;
+		Steps.Yesterday += WeekSteps.stepOffset; //Correct GSR if need be.
+		WeekSteps.daysteps[yesterday] = Steps.Yesterday;
+		WeekSteps.lastUpdate = yesterday;
 
-			//Erase any explicitly saved stepcount, and zero the offset. Correct "Yesterday"
-			if (WeekSteps.stepOffset) {
-				WeekSteps.stepOffset = 0;
-				NVS.erase(MW_DCNT);
-			}
-
-			//Also store this count to NVS, in order to survive frequent fw updates:
-			NVS.setInt(mwdaystep[yesterday], Steps.Yesterday);
+		//Erase any explicitly saved stepcount, and zero the offset. Correct "Yesterday"
+		if (WeekSteps.stepOffset) {
+			WeekSteps.stepOffset = 0;
+			NVS.erase(MW_DCNT);
 		}
-				
-  }
+
+		//Also store this count to NVS, in order to survive frequent fw updates:
+		NVS.setInt(mwdaystep[yesterday], Steps.Yesterday);
+	}
 }
 
 
@@ -624,7 +644,10 @@ void OverrideGSR::face24analog() {
       SBMA.getCounter() replaced with getCounter() that 
 			adds in this offset.
 
-   
+
+Immediately after a reboot, we DON'T have better data than what is in NVS already,
+so make sure the stepcheck won't trip (unless saving a fix-it value)
+lastUpdate is likely 0, initialize to computed yesterday
 	 */
 
 void OverrideGSR::handleReboot() {
@@ -650,6 +673,9 @@ void OverrideGSR::handleReboot() {
 		//No special case for "not found", as "not found" yields a zero int.
 		WeekSteps.daysteps[i] = NVS.getInt(mwdaystep[i]);
 	}
+
+	//Set lastUpdate so we don't trigger a bogus stepcount reset+save immediately:
+	WeekSteps.lastUpdate = (WatchTime.Local.Wday + 7 - 1) % 7;
 
 	//Also update Steps.Yesterday
 	//The stepcounter is not reset at midnight, but at a more convenient time.
@@ -824,6 +850,14 @@ void OverrideGSR::faceStepsGraph() {
 	}
 	for (int x = 33; x <= 33+7*22; x += 22) for (int y = 3; y < 90; y += 3) {
 		display.drawPixel(x, xaxis-y, FG);
+	}
+
+	//The daily goal of 10 000 steps
+  //xaxis-80*10000/maxStep
+	int ygoal = 80*10000/maxStep;	
+	if (ygoal <= 90) {
+		ygoal = xaxis - ygoal;
+		for (int x = 34; x < 34+7*22; x+=2) display.drawPixel(x, ygoal, FG);
 	}
 
 	//day names under x axis, notches, and the graph.
